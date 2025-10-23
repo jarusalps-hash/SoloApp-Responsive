@@ -1,0 +1,1001 @@
+
+
+function I1DropDownList_Init(control)
+{
+	var popup;
+	var root;
+	
+	if (control.i1Initialized) return;
+
+	// set up control properties for performant access.
+	// The location of the HTML is subject to change.  (It could be contained in an 
+	// attribute of the control.
+	I1Controls_InitField(control, 'i1PopupRowCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1PopupRowCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1PopupRowHighlightedCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1PopupRowHighlightedCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellHighlightedCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellHighlightedCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1ButtonBackground', 'string', '');
+	I1Controls_InitField(control, 'i1ButtonBackgroundPressed', 'string', '');
+	I1Controls_InitField(control, 'i1ButtonBackgroundHover', 'string', '');
+	I1Controls_InitField(control, 'i1ButtonVectorBackground', 'string', '');
+	I1Controls_InitField(control, 'i1ButtonVectorBackgroundPressed', 'string', '');
+	I1Controls_InitField(control, 'i1ButtonVectorBackgroundHover', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellImageCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellImageCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellTextCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1CaptionCellTextCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1MaxRowsVisible', 'number', 0);
+	I1Controls_InitField(control, 'i1SelectedIndex', 'number', 0);
+	I1Controls_InitField(control, 'i1MinPopupWidth', 'number', 0);
+	I1Controls_InitField(control, 'i1MinPopupWidth', 'number', 0);
+	I1Controls_InitField(control, 'i1ListIsEmpty', 'boolean', false);
+	I1Controls_InitField(control, 'i1PopupVerticalOffset', 'number', 0);
+	I1Controls_InitField(control, 'i1CommandMode', 'boolean', false);
+	I1Controls_InitField(control, 'i1Enabled', 'boolean', true);
+	I1Controls_InitField(control, 'i1SelectedKeyValue', 'string', '');
+	I1Controls_InitField(control, 'i1SelectedText', 'string', '');
+	I1Controls_InitField(control, 'i1ItemCount', 'number', 0);
+
+	if (control.i1Enabled)
+	{
+		popup = I1DropDownList_CreatePopup(control);
+		root = I1DropDownList_GetPopupRootElement(control);
+
+		root.i1MasterControl = control;
+		
+		control.i1PopupTable = I1DropDownList_GetPopupElementByRelativeId(control, 'I1PopupListTable'); 
+		control.i1PopupTable.i1MasterControl = control;
+		control.i1PopupBodyContainer = I1DropDownList_GetPopupElementByRelativeId(control, 'I1PopupBodyContainer'); 
+		control.i1PopupBodyContainer.i1MasterControl = control;
+		control.i1PopupBody = I1DropDownList_GetPopupElementByRelativeId(control, 'I1PopupBody');
+		control.i1PopupBody.i1MasterControl = control;
+		control.i1CaptionCell = control.getElementsByTagName('td')[0];
+		control.i1DropDownButton = document.getElementById(I1DropDownList_GetRelativeElementId(control, 'Button'));
+		control.i1InputControl = document.getElementById(I1DropDownList_GetRelativeElementId(control, 'Input'));
+
+		// Initialize the event handlers on the rows.
+		var rows = control.i1PopupBody.getElementsByTagName('tr');
+		for (var i = 0; i < rows.length; i++)
+		{
+		    var row = rows[i];
+		    I1DropDownList_AttachRowEvents(control, row);
+		}  
+	}  
+	
+	control.i1Initialized = true;
+}
+
+function I1DropDownList_AttachRowEvents(control, row)
+{
+	var method;
+
+	method = function(event)
+	{
+		I1DropDownList_HighlightPopupItem(control, row);
+	}
+	I1AddEventHandler(row, 'mouseover', method);
+	    
+	method = function(event)
+	{
+	    I1DropDownList_SelectItem(control, row.rowIndex, true);
+	}
+	I1AddEventHandler(row, 'click', method);
+}
+
+function I1DropDownList_GetPopupElementByRelativeId(control, relativeId)
+{
+	var id = I1DropDownList_GetRelativeElementId(control, relativeId);
+	if (!control.i1Popup)
+	{
+		return null;
+	}
+	else if (I1IsIE10())
+	{
+		return I1DropDownList_GetPopupDocument(control).getElementById(id);
+	}
+	else // if (I1IsMozilla() == true)
+	{
+		return document.getElementById(id);
+	}
+}
+
+function I1DropDownList_GetRelativeElementId(control, relativeId)
+{
+	return control.id + '_' + relativeId;
+}
+
+function I1DropDownList_GetPopupDocument(control)
+{
+	if (!control.i1Popup)
+	{
+		return null;
+	}
+	
+	return control.i1Popup.document;
+}
+
+function I1DropDownList_GetPopupRootElement(control)
+{
+	if (!control.i1Popup)
+	{
+		return null;
+	}
+	
+	if (I1IsIE10() )
+	{
+		return control.i1Popup.document.body;
+	}
+	else // if (I1IsMozilla() == true)
+	{
+		return control.i1Popup;
+	}
+}
+
+// This method should only be called once!
+function I1DropDownList_CreatePopup(control)
+{
+	var popup = null;
+	if (!!window.createPopup) // I1Controls_CreatePopup is using ie<11 window.createPopup method
+	{
+		popup = I1Controls_CreatePopup(true);
+		popup.document.body.i1MasterControl = control;
+		popup.document.body.onunload = I1DropDownList_PopupHideHandler;
+		popup.document.body.innerHTML = document.getElementById(I1DropDownList_GetRelativeElementId(control, 'PopupListContainer')).innerHTML;
+		I1Controls_AttachEvent(popup.document.body, 'onunload', I1DropDownList_PopupHideHandler);
+	}
+	else // if (I1IsMozilla() == true)
+	{
+	    popup = document.getElementById(I1DropDownList_GetRelativeElementId(control, 'PopupListContainer'));
+	}
+	
+	control.i1Popup = popup;
+	
+	return popup;
+}
+
+function I1DropDownList_PopupHideHandler(event)
+{	
+	I1DropDownList_ChangeButtonState(i1LastDropDownList, 'normal');
+	if (typeof(i1LastDropDownList.i1OldIndex) == 'number')
+	{
+		I1DropDownList_SelectItem(i1LastDropDownList, i1LastDropDownList.i1SelectedIndex, true);
+	}
+	i1LastDropDownList.i1LastCloseMouseCoords = [this.document.parentWindow.event.screenX, this.document.parentWindow.event.screenY];
+}
+
+function I1DropDownList_ShowPopup(control, event)
+{
+	var currentStyle;
+
+	I1DropDownList_Init(control);
+	
+	if (I1IsMozilla() || I1IsIE11())
+	{
+		control.i1PopupFocusing = true;
+	}
+	
+	var lastCoord = control.i1LastCloseMouseCoords;
+	control.i1LastCloseMouseCoords = null;
+	
+	// Do not show if last time the popup closed the mouse was 
+	// on the button.
+	if (lastCoord != null && typeof(lastCoord) == 'object')
+	{
+		var clientLeft = I1Controls_GetWindowClientLeft(window, event);
+		var clientTop = I1Controls_GetWindowClientTop(window, event);
+		
+		var rect = I1Controls_GetBoundingClientRect(control, clientLeft, clientTop);
+
+		if (lastCoord[0] >= rect.left && lastCoord[0] < rect.right && lastCoord[1] >= rect.top && lastCoord[1] < rect.bottom)
+		{
+			return;
+		}
+	}
+	
+	i1LastDropDownList = control;
+	
+	var popupWidth = control.i1MinPopupWidth < control.offsetWidth ? control.offsetWidth : control.i1MinPopupWidth;
+	
+	// calculate popup height
+	if (typeof(control.i1ActualPopupHeight) != 'number')
+	{
+		var rx = /^(\d+)px$/i;
+		var popupHeight = 0;
+		var maxRows = control.i1MaxRowsVisible;
+		
+		// We need to show a zero-height menu to obtain the offset measurements.
+		if (I1IsIE10() )
+		{
+			control.i1Popup.show(0, control.offsetHeight + control.i1PopupVerticalOffset, popupWidth, 0, control);
+		}
+		else // if (I1IsMozilla() == true)
+        {
+			control.i1Popup.style.width = '0px';
+			control.i1Popup.style.height = '0px';
+			control.i1Popup.style.display = 'block';
+		}
+		
+		if (maxRows <= 0)
+		{
+			popupHeight += control.i1PopupBody.offsetHeight;
+		}
+		else
+		{	
+			var rows = control.i1PopupBody.getElementsByTagName('tr');
+			for (var i = 0; i < maxRows && i < rows.length; i++)
+			{
+				var row = rows[i];
+				
+				// Command Mode--Hide the first row
+				if (control.i1CommandMode == true && i == 0)
+				{
+					row.style.display = 'none';
+					continue;
+				}
+				
+				popupHeight += row.offsetHeight;
+				if (row.currentStyle)
+				{
+					currentStyle = row.currentStyle;
+				}
+				else
+				{
+					currentStyle = document.defaultView.getComputedStyle(row, '');
+				}
+				if (rx.exec(currentStyle.borderBottomWidth) != null)
+				{
+					popupHeight += parseInt(RegExp.$1);
+				}
+				if (rx.exec(currentStyle.borderTopWidth) != null)
+				{
+					popupHeight += parseInt(RegExp.$1);
+				}
+			}
+			if (control.i1PopupBody.currentStyle)
+			{
+				currentStyle = control.i1PopupBody.currentStyle;
+			}
+			else
+			{
+				currentStyle = document.defaultView.getComputedStyle(control.i1PopupBody, '');
+			}
+			if (rx.exec(currentStyle.borderBottomWidth) != null)
+			{
+				popupHeight += parseInt(RegExp.$1);
+			}
+			if (rx.exec(currentStyle.borderTopWidth) != null)
+			{
+				popupHeight += parseInt(RegExp.$1);
+			}
+		}
+		
+		if (control.i1PopupBody.offsetHeight < popupHeight)
+		{
+			popupHeight = control.i1PopupBody.offsetHeight;
+		}
+
+		// Perhaps 100% height for IE?
+		if (I1IsMozilla() || I1IsIE11())
+		{
+			document.getElementById(I1DropDownList_GetRelativeElementId(control, 'I1PopupBodyContainer')).style.height = popupHeight.toString() + 'px'; // Necessary for Mozilla.
+		}
+		
+		//Figure in top and bottom borders.
+		if (control.i1PopupTable.currentStyle)
+		{
+			currentStyle = control.i1PopupTable.currentStyle;
+		}
+		else
+		{
+			currentStyle = document.defaultView.getComputedStyle(control.i1PopupTable, '');
+		}
+		if (rx.exec(currentStyle.borderBottomWidth) != null)
+		{
+			popupHeight += parseInt(RegExp.$1);
+		}
+		if (rx.exec(currentStyle.borderTopWidth) != null)
+		{
+			popupHeight += parseInt(RegExp.$1);
+		}
+		
+		// Figure in header row.
+		if (!I1Controls_IsElementChild(control.i1PopupTable.getElementsByTagName('tr')[0], control.i1PopupBody))
+		{
+			var row = control.i1PopupTable.getElementsByTagName('tr')[0];
+			var cell = row.getElementsByTagName('td')[0];
+			popupHeight += row.offsetHeight;
+			if (cell.currentStyle)
+			{
+				currentStyle = cell.currentStyle;
+			}
+			else
+			{
+				currentStyle = document.defaultView.getComputedStyle(cell, '');
+			}
+			if (rx.exec(currentStyle.borderBottomWidth) != null)
+			{
+				popupHeight += parseInt(RegExp.$1);
+			}
+		}
+		
+        control.i1ActualPopupHeight = popupHeight;
+		I1DropDownList_HidePopup(control);
+	}
+	
+	control.i1OldIndex = control.i1SelectedIndex;
+
+	if (I1IsIE10())
+	{
+		control.i1Popup.show(0, control.offsetHeight + control.i1PopupVerticalOffset, 
+			popupWidth, control.i1ActualPopupHeight, control);
+	}
+	else // if (I1IsMozilla() == true)
+	{
+		var popupX = I1Controls_GetElementLeft(control);
+		var popupY = I1Controls_GetElementTop(control) + control.offsetHeight + control.i1PopupVerticalOffset - 1;
+		if ((popupX + popupWidth) > window.innerWidth)
+		{
+			popupX = window.innerWidth - popupWidth;
+		}
+
+		//if ((popupY + control.i1ActualPopupHeight) > window.innerHeight)
+		//{
+		//	popupY = window.innerHeight - control.i1ActualPopupHeight;
+		//}
+		control.i1Popup.style.left = popupX.toString() + 'px';
+		control.i1Popup.style.top = popupY.toString() + 'px';
+		control.i1Popup.style.width = popupWidth + 'px';
+		control.i1Popup.style.height = control.i1ActualPopupHeight + 'px';
+		control.i1Popup.style.display = 'block';
+		control.i1Popup.focus(); // In Mozilla, the popup always has the focus.
+	}
+	
+	if (typeof(control.i1SelectedIndex) != "undefined" && control.i1SelectedIndex > -1)
+	{
+		I1DropDownList_HighlightPopupItem(control, control.i1SelectedIndex, true);
+		I1DropDownList_SelectItem(control, control.i1SelectedIndex, false);
+	}
+	else if (control.i1SelectedIndex > -1)
+	{
+		I1DropDownList_HighlightPopupItem(control, null, true);
+    }
+
+    var x = $(control);
+    var y = $(control.i1Popup);
+    $(y).css({ top: $(x).offset().top + $(x).outerHeight(), left: $(x).offset().left, position: 'absolute' });
+	
+	I1DropDownList_ChangeButtonState(control, 'pressed');
+	window.DdlPopupControl = control;
+}
+
+function I1DropDownList_IsPopupOpen(control)
+{
+	if (!control.i1Popup)
+	{
+		return false;
+	}
+	else if (I1IsIE10() )
+	{
+		return control.i1Popup.isOpen;
+	}
+	else // if (I1IsMozilla() == true)
+	{
+		return document.defaultView.getComputedStyle(control.i1Popup, null).display == 'block';
+	}
+}
+
+function I1DropDownList_SetElementCss(element, newCssClass, newAttributes)
+{
+	var rx = /^\s*([^:]+):(.+)\s*$/;
+	var trimRx = /(^\s+|\s+$)/;
+	var attributes = newAttributes ? newAttributes.split(';') : [];
+	
+	if (newCssClass)
+	{
+		element.className = newCssClass;
+	}
+
+	for (var i = 0; i < attributes.length; i++)
+	{
+		if (rx.exec(attributes[i]) != null)
+		{
+			var name = RegExp.$1.replace(trimRx, '');
+			var value = RegExp.$2.replace(trimRx, '');
+			
+			name = I1ToUpperCase(/-[a-z]/g, name);
+			name = name.replace(/-/, '');
+			element.style[I1Format(name)] = I1Format(value);
+			//var script = I1Format('element.style.{0} = \'{1}\';', name, value);
+			//eval(script);
+		}
+	}
+}
+
+function I1DropDownList_HighlightPopupItem(control, tr, scrollIntoView)
+{
+	I1DropDownList_Init(control);
+	
+	var list = control.i1PopupBody;
+	var previousTr = null;
+	
+	if (typeof (tr) == 'number') {
+		tr = list.getElementsByTagName('tr')[tr];
+	}
+	else if (typeof (tr) == 'string') {
+		var index = parseInt(tr);
+		if (index != NaN)
+			tr = list.getElementsByTagName('tr')[index];
+	}
+	
+	// select first row if null.
+	if (tr == null && list.getElementsByTagName('tr').length > 0)
+	{
+		tr = list.rows[0];
+	}
+	
+	if (tr == null) return;
+	
+	if (typeof(list.i1HighlightedTr) == 'object')
+	{
+		previousTr = list.i1HighlightedTr;
+	}
+	
+	if (scrollIntoView)
+	{
+		var rowTop = tr.offsetTop - control.i1PopupBodyContainer.scrollTop;
+		var rowBottom = rowTop + tr.offsetHeight;
+		if (rowTop < 0)
+		{
+			tr.scrollIntoView(true);	
+		}
+		else if (rowBottom > control.i1PopupBodyContainer.offsetHeight)
+		{
+			tr.scrollIntoView(false);	
+		}
+	}
+
+	if (tr == previousTr) return;
+	
+	list.i1HighlightedTr = tr;
+
+	// Set the previously selected row back to the normal style.
+	if (previousTr != null)
+	{
+		I1DropDownList_SetElementCss(previousTr, control.i1PopupRowCssClass, 
+			control.i1PopupRowCssAttributes);
+	}	
+	
+	// Set the newly selected row to the highlighted style.
+	I1DropDownList_SetElementCss(tr, control.i1PopupRowHighlightedCssClass, 
+		control.i1PopupRowHighlightedCssAttributes);
+}
+
+function I1DropDownList_SelectItem(control, index, confirm)
+{
+    I1DropDownList_Init(control);
+
+	if (!control.i1Enabled) return;
+		
+ 	var list = control.i1PopupBody;
+	var captionCell = control.i1CaptionCell;
+	
+	i1LastDropDownList = control;
+	
+	if (index > list.getElementsByTagName('tr').length - 1 || index < 0)
+	{
+		return;
+	}
+
+	if (control.i1SelectedIndex != index)
+	{
+		var row = list.getElementsByTagName('tr')[index];
+		control.i1SelectedIndex = index;
+		control.i1InputControl.value = row.getAttribute('i1KeyValue');
+        $('#' + control.i1InputControl.id).trigger('change');
+		if (control.i1CommandMode != true)
+		{
+			var imageUrl = row.getAttribute('i1ImageUrl');
+			var rowText = row.getAttribute('i1SelectedText');
+			
+			I1ClearChildElements(captionCell);
+
+			if (typeof(imageUrl) == 'string' && imageUrl != '')
+			{
+				var table = document.createElement('table');
+				var tr = table.insertRow(0);
+				var imageTd = tr.insertCell(0);
+				var textTd = tr.insertCell(1);
+				
+				table.border = 0;
+				table.cellPadding = 0;
+				table.cellSpacing = 0;
+				table.style.tableLayout = 'fixed';
+				table.style.width = '100%';
+				
+				I1DropDownList_SetElementCss(imageTd, control.i1CaptionCellImageCellCssClass, control.i1CaptionCellImageCellCssAttributes);
+				imageTd.innerHTML = I1Format('<img src="{0}"/>', row.getAttribute('i1ImageUrl'));
+				
+				I1DropDownList_SetElementCss(textTd, control.i1CaptionCellTextCellCssClass, control.i1CaptionCellTextCellCssAttributes);
+				textTd.style.overflow = 'hidden';
+				textTd.style.textOverflow = 'ellipsis';
+				textTd.innerHTML = '<nobr>' + rowText + '</nobr>';
+				
+				captionCell.appendChild(table);
+			}
+			else
+			{
+				var nobr = document.createElement('nobr');
+				nobr.innerHTML = rowText;
+				captionCell.appendChild(nobr);
+			}
+			captionCell.title = rowText;
+		}
+		
+		I1DropDownList_HighlightPopupItem(control, index, true);
+	}
+	
+	if (confirm)
+	{
+		var changed = (index != control.i1OldIndex);
+		control.i1OldIndex = null;
+		I1DropDownList_HidePopup(control);
+		if (I1IsMozilla() == true || I1IsIE())
+		{
+			// Only Mozilla needs refocusing because 
+			// the popup has the focus when it's visible.
+		    // In IE the control retains the visible throughout.
+			control.focus();  
+		}
+
+		if (changed == true && control.i1OnChange)
+		{
+			control.i1OnChange(control);
+		}
+		if (control.i1CommandMode == true)
+		{
+			control.i1SelectedIndex = 0;
+            control.i1InputControl.value = String.Empty;
+            $('#' + control.i1InputControl.id).trigger('change');
+		}
+	}
+}
+
+function I1DropDownList_SelectItemByKeyValue(control, keyValue, closePopup)
+{
+    I1DropDownList_Init(control);
+
+	if (!control.i1Enabled) return;	
+
+	var list = control.i1PopupBody;
+	
+	var rows = list.getElementsByTagName('tr');
+	for (var i = 0; i < rows.length; i++)
+	{
+		if (rows[i].getAttribute('i1KeyValue') == keyValue)
+		{
+			I1DropDownList_SelectItem(control, i, closePopup);
+			return;
+		}
+	}
+}
+
+function I1DropDownList_SelectItemByText(control, text, closePopup)
+{
+	I1DropDownList_Init(control);
+	
+	if (!control.i1Enabled) return;
+		
+	var list = control.i1PopupBody;
+	
+	var rows = list.getElementsByTagName('tr');
+	for (var i = 0; i < rows.length; i++)
+	{
+	    if (rows[i].getAttribute('i1SelectedText') == text)
+		{
+			I1DropDownList_SelectItem(control, i, closePopup);
+			return;
+		}
+	}
+}
+
+function I1DropDownList_ToggleFocus(control, focused)
+{
+    I1DropDownList_Init(control);
+	var captionCell = control.i1CaptionCell;
+
+	if (focused)
+	{
+		I1DropDownList_SetElementCss(captionCell, control.i1CaptionCellHighlightedCssClass, 
+			control.i1CaptionCellHighlightedCssAttributes);
+	}
+	else
+	{
+		if ((I1IsMozilla() || I1IsIE11()) && typeof(control.i1OldIndex) == 'number')
+		{
+			// For mozilla only--when the popup disappears, we have
+			// to finalize its selection.
+			I1DropDownList_SelectItem(control, control.i1SelectedIndex, true);
+		}
+		else
+		{
+			I1DropDownList_HidePopup(control);
+		}
+		I1DropDownList_SetElementCss(captionCell, control.i1CaptionCellCssClass, 
+			control.i1CaptionCellCssAttributes);
+	}
+}
+
+function I1DropDownList_HandleKeyDown(control, event)
+{
+	I1DropDownList_Init(control);
+	
+	var popupBody = control.i1PopupBody;
+	var highlightedTr = popupBody.i1HighlightedTr;
+	var newIndex;
+	var offset = 0;
+	var popup = control.i1Popup;
+	
+	if (control.i1SelectedIndex > -1 && (typeof(highlightedTr) == 'undefined' || highlightedTr == null))
+	{
+		I1DropDownList_HighlightPopupItem(control, control.i1SelectedIndex, true);
+		if (I1DropDownList_IsPopupOpen(control))
+		{
+			return;
+		}
+		else
+		{
+			highlightedTr = popupBody.i1HighlightedTr;
+		}
+	}
+	
+	if (I1DropDownList_IsPopupOpen(control) == false && (event.keyCode == 38 || event.keyCode == 40 || 
+		event.keyCode == 33 || event.keyCode == 34 || event.keyCode == 35 ||
+		event.keyCode == 36))
+	{
+		event.returnValue = false;
+		event.cancelBubble = true;
+		if (event.preventDefault)
+		{
+			event.preventDefault();
+		}
+		I1DropDownList_ShowPopup(control);
+		return;
+	}
+	
+	if (control.i1SelectedIndex < 0)
+	{
+		if (event.keyCode == 13)
+		{
+			I1DropDownList_HidePopup(control);
+		}
+		return;
+	}			
+		
+	switch (event.keyCode)
+	{
+		// up arrow
+		case 38: 
+			offset = -1;
+			control.i1MoveDown = false;
+			break;
+		// down arrow
+		case 40: 
+			offset = 1;
+			control.i1MoveDown = true;
+			break;
+		// page up
+		case 33:
+			offset = -Math.round(control.i1PopupBodyContainer.offsetHeight / highlightedTr.offsetHeight) + 1;
+			control.i1MoveDown = false;
+			break;
+		// page down
+		case 34:
+			offset = Math.round(control.i1PopupBodyContainer.offsetHeight / highlightedTr.offsetHeight) - 1;
+			control.i1MoveDown = true;
+			break;
+		// home
+		case 36:
+			control.i1MoveDown = false;
+			I1DropDownList_SelectItem(control, 0, false);
+			return;
+		// end
+		case 35:
+			control.i1MoveDown = true;
+			if (I1DropDownList_IsPopupOpen(control))
+			{
+				I1DropDownList_SelectItem(control, popupBody.getElementsByTagName('tr').length - 1, false);
+			}
+			return;
+		// tab
+		case 9:
+			if (I1DropDownList_IsPopupOpen(control)) {
+				event.cancelBubble = true;
+				event.returnValue = false;
+				I1DropDownList_SelectItem(control, highlightedTr.rowIndex, true);
+			}
+			return;
+		// enter
+		case 13:
+			if (I1DropDownList_IsPopupOpen(control))
+			{
+				event.cancelBubble = true;
+				event.returnValue = false;
+				I1DropDownList_SelectItem(control, highlightedTr.rowIndex, true);
+			}
+			return;
+		// esc
+		case 27:
+			// This is only handled by the Mozilla version.
+			// IE bypasses this event and closes the popup
+			// automatically.
+			if (I1IsMozilla() == true)
+			{
+				event.cancelBubble = true;
+				event.returnValue = false;
+				// Another workaround: in Mozilla, the ESC
+				// key causes the page to stop loading.
+				// If the onchange event of this control 
+				// involves a postback, then directly invoking
+				// the event will cause the postback to be
+				// cancelled.
+				// We work around this by delaying the postback
+				// by 1/1000 of a second.  I hope this is enough.
+				// [TChow 12/19/2005]
+				window.setTimeout(function() {I1DropDownList_SelectItem(control, control.i1SelectedIndex, true);}, 1);
+			}
+			return;
+		default:
+			return;
+	}
+	
+	event.returnValue = false;
+	event.cancelBubble = true;
+	if (event.preventDefault)
+	{
+		event.preventDefault();
+	}
+	
+	newIndex = offset + highlightedTr.rowIndex;
+	
+	if (newIndex < 0)
+	{
+		newIndex = 0;
+	}
+	else if (newIndex > popupBody.getElementsByTagName('tr').length - 1)
+	{
+		newIndex = popupBody.getElementsByTagName('tr').length - 1;
+	}
+
+	if (control.i1CommandMode == true && newIndex == 0 && popupBody.getElementsByTagName('tr').length > 1)
+	{
+		newIndex = 1;
+	}
+	
+	I1DropDownList_SelectItem(control, newIndex, false);
+	
+	// any of these keys should reset keytracking.
+	i1KeyTrackString = '';
+	i1KeyTrackIndex = -1;
+}
+
+function I1DropDownList_HandleKeyPress(control, event)
+{
+    var keyCode = I1IsIE() == true ? event.keyCode : event.which;
+
+	// Space key: when pressed,
+	// causes the whole window to scroll by one page.
+	// To counter this, we cancel the default behavior
+	// here.
+	if (keyCode == 32)
+	{
+		event.returnValue = false;
+	}
+	
+	// esc--not applicable
+	if (event.keyCode == 27)
+	{
+		return;
+	}
+	
+	I1DropDownList_Init(control);
+
+	var popupBody = control.i1PopupBody;
+	var curTime = new Date().valueOf();
+	
+	// Within 1 second.
+	if (i1LastKeyTrackControl != control || (i1KeyTrackTime != null && curTime > i1KeyTrackTime + 1000))
+	{
+		i1KeyTrackString = '';
+		i1KeyTrackIndex = -1;
+	}
+	
+	var character = String.fromCharCode(keyCode).toLowerCase();
+	
+	i1LastKeyTrackControl = control;
+	i1KeyTrackTime = curTime;
+	i1KeyTrackString += character;
+	
+	// enter and tab keys are not valid here.
+	if (event.keyCode == 13 || event.keyCode == 9)
+	{
+		i1KeyTrackString = '';
+		i1KeyTrackIndex = -1;
+		return;
+	}
+	
+	if (!I1DropDownList_IsPopupOpen(control))
+	{
+		I1DropDownList_ShowPopup(control);
+	}
+	
+	var rows = popupBody.getElementsByTagName('tr');
+	for (var i = i1KeyTrackIndex < 0 ? 0 : i1KeyTrackIndex; i < rows.length; i++)
+	{
+		var tr = rows[i];
+		var selectedText = tr.getAttribute('i1SelectedText');
+		
+		if (typeof(selectedText) != 'undefined' && selectedText != null && 
+			selectedText.toLowerCase().indexOf(i1KeyTrackString) == 0)
+		{
+			if (i1KeyTrackIndex != i)
+			{
+				i1KeyTrackIndex = i;
+				I1DropDownList_SelectItem(control, i, false);
+			}
+			break;
+		}
+	}
+}
+
+function I1DropDownList_GetSelectedValue(control) 
+{
+	I1DropDownList_Init(control);
+	
+	if (control.i1Enabled)
+	{
+		if (control.i1SelectedIndex > -1)	
+		{
+			return control.i1PopupBody.getElementsByTagName('tr')[control.i1SelectedIndex].getAttribute('i1KeyValue');
+		}
+		else
+		{
+			return null;
+		}
+	}
+	else
+	{
+		return control.i1SelectedKeyValue;
+	}
+}
+
+function I1DropDownList_GetSelectedText(control) 
+{
+	I1DropDownList_Init(control);
+	
+	if (control.i1Enabled)
+	{
+		if (control.i1SelectedIndex > -1)	
+		{
+			return control.i1PopupBody.getElementsByTagName('tr')[control.i1SelectedIndex].getAttribute('i1SelectedText');
+		}
+		else
+		{
+			return null;
+		}
+	}
+	else
+	{
+		return control.i1SelectedText;
+	}
+}
+
+function I1DropDownList_GetItemCount(control)
+{
+	I1DropDownList_Init(control);
+	
+	return control.i1PopupBody.getElementsByTagName('tr').length;
+}
+
+function I1DropDownList_HidePopup(control)
+{
+	if (!control.i1Popup) return;
+
+	if (I1DropDownList_IsPopupOpen(control) == true)
+	{
+	    if (I1IsIE10() )
+		{
+			control.i1Popup.hide();
+		}
+		else // if (I1IsMozilla() == true)
+		{
+			control.i1Popup.style.display = 'none';
+		}
+	}
+	
+	I1FireEvent(control.i1DropDownButton, 'mouseout');
+	window.DdlPopupControl = null;
+}
+
+function I1DropDownList_ChangeButtonState(control, state)
+{
+    if (window.newFormat == true)
+        return;
+	var suffix = state == 'normal' ? '' : state;
+	var vectorAttributeName = 'i1ButtonVectorBackground' + suffix;
+	var bmpAttributeName = 'i1ButtonBackground' + suffix;
+	
+	var filter = control.getAttribute(vectorAttributeName);
+	var bmp = control.getAttribute(bmpAttributeName);
+	
+	if (I1IsIE() == true)
+	{
+		control.i1DropDownButton.style.filter = filter;
+	}
+	else
+	{
+		control.i1DropDownButton.style.backgroundImage = bmp;
+	}
+}
+
+// Call this method at startup for every I1DropDownList control.
+function I1DropDownList_SetupFunctions(control, onChangeHandler)
+{
+	control.i1SelectItemByIndex = function (index)
+	{
+		I1DropDownList_SelectItem(control, index, false);
+	}
+	control.i1SelectItemByKeyValue = function (keyValue)
+	{
+		I1DropDownList_SelectItemByKeyValue(control, keyValue, false);
+	}
+	control.i1SelectItemByText = function (text)
+	{
+		I1DropDownList_Init(control);
+		if (control.i1Enabled)
+		{
+			I1DropDownList_SelectItemByText(control, text, false);
+		}
+	}
+	control.i1GetItemCount = function ()
+	{
+		I1DropDownList_Init(control);
+		return control.i1ItemCount;
+	}
+	control.i1GetSelectedIndex = function ()
+	{
+		I1DropDownList_Init(control);
+		return control.i1SelectedIndex;
+	}
+	control.i1GetSelectedKeyValue = function ()
+	{
+		return I1DropDownList_GetSelectedValue(control);
+	}
+	control.i1GetSelectedText = function ()
+	{
+		return I1DropDownList_GetSelectedText(control);
+	}
+	if (onChangeHandler != null)
+	{
+		control.i1OnChange = onChangeHandler;
+	}
+}
+
+function I1DropDownList_SetupLabelFunctions(control, selectedIndex, selectedKeyValue, selectedText)
+{
+	control.i1GetSelectedKeyValue = function ()
+	{
+		return selectedKeyValue;
+	}
+	control.i1GetSelectedText = function ()
+	{
+		return selectedText;
+	}
+	control.i1GetSelectedIndex = function ()
+	{
+		return selectedIndex;
+	}
+}

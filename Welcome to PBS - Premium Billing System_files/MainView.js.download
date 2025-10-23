@@ -1,0 +1,2231 @@
+﻿//PBS - 11081 - gabe
+//setup a shared variable
+window.lookUpDlg = "";
+
+// Instead of doing this: var el = document.getElementById('myobj'); 
+// use this:
+// var el = $('myobj');
+//function $() {
+//    var elements = new Array();
+//    for (var i = 0; i < arguments.length; i++) {
+//        var element = arguments[i];
+//        if (typeof element == 'string')
+//            element = document.getElementById(element);
+//        if (arguments.length == 1)
+//            return element;
+//        elements.push(element);
+//    }
+//    return elements;
+//}
+
+if (navigator.userAgent.toLowerCase().indexOf('firefox') > -1) { window.event = {}; }    //do not remove, this takes care of FF restrictions.
+var frenchAbbreviatedMonth = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'];
+var frenchMonth = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre'];
+
+var cookieUtil = {
+    GetCookie: function (name) {
+        var v = document.cookie.match('(^|;) ?' + name + '=([^;]*)(;|$)');
+        return v ? v[2] : null;
+    },
+    DeleteCookie: function (name) {        cookieUtil.SetCookie(name, '', -1);     },
+    SetCookie: function (name, value, days) {
+        var d = new Date;
+        d.setTime(d.getTime() + 24 * 60 * 60 * 1000 * days);
+        document.cookie = name + "=" + value + ";path=/;expires=" + d.toGMTString();
+    }
+};
+
+var navigationUtil = {
+    backIndexCookieName: "backIndex",
+    showMessageOnBackNavigation: function (newUrl) {//, limit
+        //used to show a message to the user if the navigated back.
+        //console.log('limit-' + limit);
+        setTimeout(function () {
+            var backIndexCount = parseInt(cookieUtil.GetCookie(navigationUtil.backIndexCookieName));
+            //console.log('showMessageOnBackNavigation-' + backIndexCount );//+ '-' + limit
+            //if (!limit)
+            //    limit = 2;
+            if (backIndexCount > 1 && window.location != newUrl) {
+                var msg = "You have selected your browser's back button. This action will return you to the PBS website's home page.";// Do you wish to proceed?
+                alert(msg);
+                window.location = newUrl;
+                //if (confirm(msg)) 
+                //    window.location = newUrl;            
+            }
+        }
+        ,300);        
+    },
+    showMessageOnBackNavigationWithoutRedirects: function (newUrl) {//, limit
+        //used to show a message to the user if the navigated back.
+        //console.log('limit-' + limit);
+        setTimeout(function () {
+            var backIndexCount = parseInt(cookieUtil.GetCookie(navigationUtil.backIndexCookieName));
+            //console.log('showMessageOnBackNavigation-' + backIndexCount );//+ '-' + limit
+            //if (!limit)
+            //    limit = 2;
+            if (backIndexCount > 1 && window.location != newUrl) {
+                //var msg = "You have selected your browser's back button. This action will return you to the PBS website's home page.";// Do you wish to proceed?
+                //alert(msg);
+                window.history.forward();
+                //window.location = newUrl;
+                //if (confirm(msg)) 
+                //    window.location = newUrl;            
+            }
+        }
+            , 300);
+    },
+    preventBackNavigation: function () {
+        //this code is used to prevent the user from using the back button
+        //the server must reset the cookie to zero on every request
+        //and there is a check in the body to see if the backIndexCount > 2
+        //if so it displays a dialoge
+
+        var lastBackIndex = parseInt(cookieUtil.GetCookie(navigationUtil.backIndexCookieName));
+        var nextIndex = lastBackIndex + 1;
+        //cookieUtil.DeleteCookie(navigationUtil.backIndexCookieName);
+        cookieUtil.SetCookie(navigationUtil.backIndexCookieName, nextIndex.toString(), 30);
+        //history.forward(); //prevent user from navigating back
+    },
+    confirmNavigationAway: function (element) {
+        var jElement = $(element);
+        var confirmOnChange = jElement.data('nav-confirm-onchange') || '1';
+        var message = jElement.data('nav-confirm-message') || 'You have unsaved changes that will be lost if you decide to continue. Are you sure you want to leave this page?';
+        var text1 = jElement.data('nav-confirm-text1') || 'Stay on this Page';
+        var text2 = jElement.data('nav-confirm-text2') || 'Leave this Page';
+        var action1 = jElement.data('nav-confirm-action1') || ''; //one of them follow is url where to go another empty
+        var action2 = jElement.data('nav-confirm-action2') || '';
+        var title = jElement.data('nav-confirm-title') || '';
+        var titleClass = jElement.data('nav-confirm-titleclass') || '';
+        var messageClass = jElement.data('nav-confirm-messageclass') || '';
+        var button1Class = jElement.data('nav-confirm-button1class') || '';
+        var button2Class = jElement.data('nav-confirm-button2class') || '';
+        var confirmBoxClass = jElement.data('nav-confirm-boxclass') || '';
+        if (confirmOnChange == '1') {//check if form has been changed
+            if (Pbs.formChanged() != true && window.forceConfirmNavigationAway != true) {
+                window.location = action1 || action2; //this is good only for navigation, one of actions should be empty.
+                return;
+            }
+        }
+        if (action1 != '')
+            action1 = "window.location='" + action1 + "'";
+        else if (action2 != '')
+            action2 = "window.location='" + action2 + "'";
+        Pbs.confirm(message, text1, text2, action1, action2, title, titleClass, messageClass, button1Class, button2Class, confirmBoxClass);
+    }
+};
+
+var editor = {
+    init: function (selector) {
+        if (window.ClassicEditor == undefined)
+            $.ajax({
+                type: "GET",
+                url: window.PBSURL + '/JavaScript/ck/ckeditor.js?v=' + window.PBSBuild,
+                success: function () { editor.create(selector); },
+                dataType: "script",
+                cache: true
+            });
+        else
+            editor.create(selector);        
+    },
+    create: function (selector) {
+        ClassicEditor
+            .create(document.querySelector(selector),
+                {
+                    fontSize: { options: [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30, 32] },
+                    toolbar: { shouldNotGroupWhenFull: true, removeItems: [] },
+                    link: {
+                        // Automatically add target="_blank" and rel="noopener noreferrer" to all external links.
+                        addTargetToExternalLinks: true
+                    }
+                }
+            )
+            .then(editor => {
+                Pbs.editors[$(selector).attr('id')] = editor;
+                $('.ck-editor [data-cke-tooltip-text]').each(function () {
+                    $(this).attr('title', $(this).attr('data-cke-tooltip-text'));
+                });
+                Pbs.switchTooltip($('.ck-editor'));
+                //remove image upload 
+                var btn1 = $('.ck-button[data-cke-tooltip-text="Insert image"]:first');
+                var btn2 = $('.ck-button[data-cke-tooltip-text="Insert image"]:eq(1)');
+                btn2.html(btn1.html());
+                btn2.find('svg').css("width", "var(--ck-icon-size)")
+                btn1.parent().remove(); 
+            })
+            .catch(error => {
+                console.error(error);
+            });
+        $(selector).show();
+    }
+};
+
+function $alert(text, title, buttontext, textAlignment, functionKey, hideCloseButton) {
+    var closeText = 'Close';
+    if (preferredLanguage == 'Francais')
+        closeText = 'Fermer';
+
+    buttontext = buttontext || "OK"
+    textAlignment = textAlignment || "center"
+    $("<div style='width: 100%; height: 100%; vertical-align: middle; text-align: " + textAlignment + "'>" + text + "</div>").dialog({
+        title: title = title || "",
+        dialogClass: hideCloseButton === 1 ? "pbs-ui-dialog no-close" : "pbs-ui-dialog",
+        appendTo: "body",
+        closeText: closeText,
+        width: 440,
+        buttons: [
+            {
+                text: buttontext,
+                click: function () {
+                    if (functionKey)
+                        Pbs.executeFunction(functionKey);
+                    $(this).dialog("close");
+                    $(this).remove();
+                }
+            }
+        ],
+        modal: true,
+        closeOnEscape: true
+    });
+}
+
+//function confirm(text, title, yesButtonText, noButtonText) {
+//    yesButtonText = yesButtonText || "Ok";
+//    noButtonText = noButtonText || "Cancel";
+//    $("<div style='width: 100%; height: 100%; vertical-align: middle; text-align: center'>" + text + "</div>").dialog({
+//        title: title = title || "",
+//        dialogClass: "pbs-ui-dialog",
+//        appendTo: "#divContent",
+//        buttons: [
+//          {
+//              text: yesButtonText,
+//              click: function () {
+//                  $(this).dialog("close");
+//                  $(this).remove();
+//                  return true;
+//              }
+//          },
+//          {
+//              text: noButtonText,
+//              click: function () {
+//                  $(this).dialog("close");
+//                  $(this).remove();
+//                  return false;
+//              }
+//          }
+//        ],
+//        modal: true,
+//        closeOnEscape: true
+//    });
+//}
+
+function showPopup(title, controlId, width, height, effect) {
+    $("#" + controlId).dialog({
+        title: title,
+        dialogClass: "pbs-ui-dialog",
+        appendTo: "#divContent",
+        width: width = width || "300",
+        height: height = height || "200",
+        buttons: [{
+            text: "OK",
+            click: function () {
+                $(this).dialog("close");
+            }
+        }],
+        modal: true,
+        resizable: false,
+        autoOpen: false,
+        closeOnEscape: true,
+        show: {
+            effect: effect = effect || '',
+            duration: 100
+        },
+        hide: {
+            effect: effect = effect || '',
+            duration: 100
+        }
+    });
+}
+
+function showPopupNoButtons(title, controlId, width, height, effect, resizable) {
+    //use Pbs.LB.showInModalTemplate() instead.
+    $("#" + controlId).dialog({
+        title: title,
+        dialogClass: "pbs-ui-dialog",
+        appendTo: owner = "#divContent",
+        width: width = width || "300",
+        height: height = height || "200",
+        modal: true,
+        resizable: resizable || false,
+        closeOnEscape: true,
+        show: {
+            effect: effect = effect || '',
+            duration: 100
+        },
+        hide: {
+            effect: effect = effect || '',
+            duration: 100
+        }
+    })
+}
+
+function OpenWindow(url, windowName, width, height, locX, locY) {
+    if (width == undefined)
+        width = 750;
+    if (height == undefined)
+        height = 550;
+    if (windowName == undefined)
+        windowName = '';
+
+    var windowparams = 'width=' + width + ',height=' + height + ',menubar=no,location=no,resizable=yes,scrollbars=auto,status=yes,';
+
+    if (locX == null)
+        locX = 10;
+    if (locY == null)
+        locY = 10;
+
+    if (I1IsIE11() && url.match("^http"))
+        windowparams = windowparams + 'left=' + locX + ',top=' + locY;
+    else if (I1IsIE10())
+        windowparams = windowparams + 'left=10000,top=10000';
+    else
+        windowparams = windowparams + 'left=-10000,top=-10000';
+
+
+    var _window = window.open(url, windowName, windowparams);
+
+    if (!_window)
+        return;
+    // if this is the first time for the window, or if it is from button onclick event
+    //if (_window.location.href == 'about:blank' || ((locX == null) && (locY == null)))
+    //{
+    //	_window = window.open(url, windowName, windowparams);
+    //}
+    //else if (_window.location.href != 'about:blank' && locX != null && locY != null)
+    //{
+    //	_window.location.reload(true);
+    //}
+
+    //Issue found while working on the Custom report builder. The view print activity window does not open in Chrome on the first click
+    //On the second clickc too, it opens up a small window. Hence we are skipping the problematic code for now, if the browser is chrome
+    if (!IsChrome() && locX != null && locY != null) {
+        if (!I1IsIE10())
+            self.blur();
+        _window.moveTo(locX, locY);
+        _window.focus();
+    }
+    return _window;
+}
+
+function PrintElement(element) {
+    var text = '';
+    var links = window.document.getElementsByTagName('link');
+    for (var i = 0; i < links.length; i++)
+        text += links[i].outerHTML;
+    text = "<html><head><title></title>" + text + '</head><body>'
+    text += element[0].outerHTML;
+    text += '</body></html>';
+    console.log(text);
+    var printWindow = window.open('', 'print', 'height=' + element.height() + ',width=' + element.width());
+    printWindow.document.write(text);
+    printWindow.document.close();
+    printWindow.print();
+    console.log(text);
+}
+
+
+var Fix = {
+    fixBootstrapModal: function (modal, options) {
+        if (modal.length > 0) {
+            if (Pbs.browser.isIE())
+                modal.modal(options);
+            else
+                new bootstrap.Modal(modal[0], options).show();//library update fix 1/21
+        }
+    },
+    fixDatePicker: function () {
+        var dpHeight = 180; //datepicker popup height
+        var datePickers = $('.I1DatePicker');// input[type="textbox"]
+        if (datePickers.length == 0)
+            return;
+        var lowestDatePicker = $(datePickers[0]);
+        for (var i = 1; i < datePickers.length; ++i) {
+            var currentDatePicker = $(datePickers[i]);
+            if (currentDatePicker.position().top > lowestDatePicker.position().top)
+                lowestDatePicker = currentDatePicker;
+        }
+        lowestDatePicker.first('img').click(function (event) {
+            var innerHeight = window.innerHeight;//check every time to make sure we don't oversize
+            if (innerHeight < ($(this).position().top + dpHeight)) {//dp popup will not fit
+                //if (lowestDatePickerTop > dpHeight) { //place popup on top of control
+                //    ;//this part involves heavy messing with datepicker. todo:
+                //}
+                //else {//resise window to fit popup
+                window.resizeBy(0, $(this).position().top + dpHeight - innerHeight);
+                //}
+            }
+        });
+    },
+    fixTabularGrid: function () { if (Pbs.browser.isIE11())  $('.TabularGridFrame').removeAttr('disabled'); },
+    fixDropDown: function () {
+        $('body').on("click", '.I1DropDownListFrame', function() {
+            var popupId = $(this).attr('id') + '_PopupListContainer';
+            if (window.location.href.toLowerCase().indexOf('dialog') > -1) {
+                var top = $(this).position().top;
+                var height = $('#' + popupId).height() + 35;
+                console.log('in');
+                if (top + height > window.innerHeight)
+                    window.resizeBy(0, top + height - window.innerHeight);
+            }
+            $('#' + popupId).css('height', 'auto');
+        });
+    },
+    windowY: function () {
+        var height = Pbs.innerHeight();
+        var parentHeight = Pbs.innerHeight(opener);
+        //console.log('height: ' + height + '; parentHeight- ' + parentHeight +
+        //          '; height + screenY- ' + (height + screenY) + '; screenHeight-' + screen.height);
+        if (parentHeight < height || (height + screenY) > screen.height) {
+            window.moveBy(opener.screenX - screenX + 20, opener.screenY - screenY + 20);
+            if (I1IsFirefox()) {
+                window.resizeTo(Pbs.innerWidth(), parentHeight);
+            }
+        }
+        return;
+        //var temp = 'parent'
+        // + '\nhtml.height-' + $('html', opener.document).height()
+        // + '\njs window.outerHeight-' + opener.outerHeight
+        // + '\nwindow.innerHeight-' + opener.innerHeight
+        // + '\njq window.outerHeight-' + $(window, opener.document).outerHeight()
+        // + '\nwindow.screenY-' + opener.screenY
+        // + '\nscreen.height-' + opener.screen.height
+        //  + '\npopup'
+        //+ '\nhtml.height-' + $('html').height()
+        // + '\njs window.outerHeight-' + window.outerHeight
+        // + '\nwindow.innerHeight-' + window.innerHeight
+        // + '\njq window.outerHeight-' + $(window).outerHeight()
+        // + '\nwindow.screenY-' + window.screenY
+        // + '\nscreen.height-' + window.screen.height;
+        //alert(temp);
+        //console.log(temp);
+        //if (IsChrome())
+        //    return;
+        //var windowHeight = window.outerHeight;
+        //if (I1IsIE())
+        //    windowHeight = $('html').height() + (window.outerHeight - window.innerHeight + 40);
+        //else if (I1IsFirefox())
+        //    windowHeight = $('html').height() + ($(window).outerHeight() - window.innerHeight + 40);
+
+        //if (windowHeight + window.screenY > screen.height) {
+        //    if (I1IsFirefox()) {
+        //        console.log('move by ' + (windowHeight + window.screenY - screen.height))
+        //        window.moveBy(0, -(windowHeight + window.screenY - screen.height));
+        //        //window.moveTo(0, 0);//window.moveBy(0, windowHeight + window.screenY - screen.height); 
+        //    }
+        //    else if (I1IsIE()){
+        //        console.log('move by -' + (windowHeight + window.screenY - screen.height))
+        //        window.moveBy(0, -(windowHeight + window.screenY - screen.height));
+        //    }
+        //    else {
+        //        console.log('move by ' + (windowHeight + window.screenY - screen.height))
+        //        window.moveBy(0, windowHeight + window.screenY - screen.height);
+        //    }
+        //}
+    }
+};
+
+function I1IsFirefox() {//same function in jshelper. can be removed later from here
+    return window.navigator.userAgent.indexOf("Firefox") != -1;
+}
+
+var Pbs = {
+    functionMap: new Map(),
+    executeFunction: (key, ...args) => {
+        if (Pbs.functionMap.has(key))
+            return Pbs.functionMap.get(key)(...args);
+        console.log('Function "' + key + '" not found in functionMap'); //eval(funcName);
+    },
+    getFunctionAsString: (key) => {
+        if (Pbs.functionMap.has(key))
+            return Pbs.functionMap.get(key).toString();
+        return '';
+    },
+    getPostBackParamsFromFunctionString: (cmd) => {
+        var funcArr = cmd.match(/__doPostBack.*?\(([^)]*)\)/);
+        if (funcArr?.length != 2) return null;
+        var argsArr = funcArr[1]?.split(',')?.map(arg => arg.trim().replace(/'/g,'').replace(/"/g,''));
+        if (argsArr?.length != 2) return null;
+        return argsArr;
+    },
+    originalForm: null,
+    formChanged: function () {
+        var currentForm = $('form').serialize();
+        if (this.originalForm != currentForm)
+            return true;
+        return false;
+    },
+    editors: {},
+    browser: {//copied from jshelper
+        isMozillaValue:null,
+        isMozilla: function () {
+            if (Pbs.browser.isMozillaValue)
+                return Pbs.browser.isMozillaValue;
+            var ieVer = I1IEVer();
+            Pbs.browser.isMozillaValue = (/^gecko$/i.test(window.navigator.product) && ieVer != 11 && ieVer != 12);
+            return Pbs.browser.isMozillaValue;
+        },
+        IEversionValue: null,
+        IEversion:  function () {
+            if (Pbs.browser.IEversionValue)
+                return Pbs.browser.IEversionValue;
+
+            var iev = 0;
+            var ieold = (/MSIE (\d+\.\d+);/.test(navigator.userAgent));
+            if (ieold) iev = new Number(RegExp.$1).valueOf();
+
+            var trident = !!navigator.userAgent.match(/Trident\/7.0/);
+            var rv11 = navigator.userAgent.indexOf("rv:11.0");
+            var rv12 = navigator.userAgent.indexOf("Edge/12");
+
+            if (navigator.appVersion.indexOf("MSIE 10") != -1) iev = 10;
+            if (trident && rv11 != -1) iev = 11;
+            if (rv12 != -1) iev = 12;
+            Pbs.browser.IEversionValue = iev;
+            return iev;
+        },
+        isIE: function () { return (Pbs.browser.IEversion() > 0);      },
+        isIE10: function () { return (Pbs.browser.IEversion() > 0 && Pbs.browser.IEversionValue < 11); },//ie 10 and below
+        isIE11: function () { return (Pbs.browser.IEversion() == 11); },
+        isEdge: function () { return window.navigator.userAgent.indexOf("Edge") != -1 },
+        isFF: function () { return window.navigator.userAgent.indexOf("Firefox") != -1},
+        isChrome: function () {
+            // please note, 
+            // that IE11 now returns undefined again for window.chrome
+            // and new Opera 30 outputs true for window.chrome
+            // and new IE Edge outputs to true now for window.chrome
+            // and if not iOS Chrome check
+            // so use the below updated condition
+            var isChromium = window.chrome,
+                winNav = window.navigator,
+                vendorName = winNav.vendor,
+                isOpera = winNav.userAgent.indexOf("OPR") > -1,
+                isIEedge = winNav.userAgent.indexOf("Edge") > -1,
+                isIOSChrome = winNav.userAgent.match("CriOS");
+
+            if (isIOSChrome) {
+                return true;
+            } else if (isChromium !== null && isChromium !== undefined && vendorName === "Google Inc." && isOpera == false && isIEedge == false) {
+                return true;
+            } else {
+                return false;
+            }
+        }
+    },
+    domDisabler: function(obj, flag)
+    {
+        for (var i = 0; i < obj.childNodes.length; i++) {
+            if (obj.childNodes[i].nodeName == "SELECT" || obj.childNodes[i].nodeName == "INPUT") {
+                obj.childNodes[i].disabled = flag;
+            }
+            else {
+                if (obj.childNodes[i].childNodes.length > 0) {
+                    Pbs.domDisabler(obj.childNodes[i], flag);
+                }
+            }
+        }
+
+    },
+    innerWidth: function (win) {
+        var w = win || window;
+        var inner = w.innerWidth || 0;
+        var docClient = w.document.documentElement.clientWidth || 0;
+        var elemClient = w.document.getElementsByTagName('body')[0].clientWidth || 0;
+        return Math.max(inner, docClient, elemClient);
+    },
+    innerHeight: function (win) {
+        var w = win || window;
+        var inner = w.innerHeight || 0;
+        var docClient = w.document.documentElement.clientHeight || 0;
+        var elemClient = w.document.getElementsByTagName('body')[0].clientHeight || 0;
+        var ieHeight = 0;
+        if (I1IsIE())
+            ieHeight = $('html').height() || 0;
+        return Math.max(inner, docClient, elemClient, ieHeight);
+        //h = $('html', w);
+    },
+    resizeWindowToElement: function (elem, onlyIncrease) {
+        var width = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+        var height = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+
+        var widthTo = elem.width();
+        var heightTo = elem.height() + 40;//20 works fine, except chrome
+        if (widthTo > screen.width)
+            widthTo = screen.width;
+        if (heightTo > screen.height)
+            heightTo = screen.height;
+        var widthBy = widthTo - width;
+        var heightBy = heightTo - height;
+        if (onlyIncrease) {
+            if (widthBy < 0) widthBy = 0;
+            if (heightBy < 0) heightBy = 0;
+        }
+        window.resizeBy(widthBy, heightBy);
+        return;
+        //if (width) {            
+        //    window.innerWidth = widthTo;
+        //    window.innerHeight = heightTo;
+        //    return;
+        //}
+        //width = document.documentElement.clientWidth;
+        //if (width) {
+        //    document.documentElement.clientWidth = $('body').width();
+        //    document.documentElement.clientHeight = $('body').height() + 20;
+        //    return;
+        //}
+        //width = document.documentElement.clientWidth;
+        //if (width) {
+        //    document.body.clientWidth = $('body').width();
+        //    document.body.clientHeight = $('body').height() + 20;
+        //}
+    },
+    adjustWindowToRecommendedSize: function () {
+        return;
+        //var width = $('[data-recommendedwidth]').attr('data-recommendedwidth');
+        //var height = $('[data-recommendedheight]').attr('data-recommendedheight');
+        //if (!isNaN(width) && !isNaN(height)) // var currentWidth = Pbs.innerWidth();  var currentHeight = Pbs.innerHeight();
+        //    if (Pbs.innerWidth() < width && Pbs.innerHeight() < height)
+        //        window.resizeTo(width, height);
+    },
+    adjustWindowToOriginalSize: function () {
+        return;
+        //var width = $('[data-originalwidth]').attr('data-originalwidth');
+        //var height = $('[data-originalheight]').attr('data-originalheight');
+        //if (!isNaN(width) && !isNaN(height)) // var currentWidth = Pbs.innerWidth();  var currentHeight = Pbs.innerHeight();
+        //    //    if (Pbs.innerWidth() < width && Pbs.innerHeight() < height)
+        //    window.resizeTo(width, height);
+    },
+    validateClientSide: function () {
+        var valid = true;
+        var clientSideValidationClass = 'InvalidClientSide';
+        $('input[required]').each(function () {
+            if ($(this).val() == '') {
+                $(this).addClass(clientSideValidationClass);
+                valid = false;
+            }
+            else
+                $(this).removeClass(clientSideValidationClass);
+        });
+        $('input[required]').off('blur').blur(function () {
+            if ($(this).val() != '')
+                $(this).removeClass(clientSideValidationClass);
+            else
+                $(this).addClass(clientSideValidationClass);
+        });
+        return valid;
+    },
+    setFocus: function (selectors) {
+        if (selectors == undefined || selectors == null || selectors.length == 0)
+            setTimeout(function () { $(':input:enabled:visible:not([readonly]):first').focus(); }, 500);
+        else {
+            selectors.forEach(function (item, index, arr) { arr[index] = item + ':input:enabled:visible:not([readonly]):first' });
+            setTimeout(function () { $(selectors.join(',')).focus(); }, 500);
+        }
+
+    },
+    hide: function (selector) { $(selector).addClass("hide"); },
+    show: function (selector) { $(selector).removeClass("hide"); },
+    download: function (filename, text, type) {
+        var pom = document.createElement('a');
+        pom.setAttribute('href', 'data:' + type + ';charset=utf-8,' + encodeURIComponent(text));
+        pom.setAttribute('download', filename);
+
+        if (document.createEvent) {
+            var event = document.createEvent('MouseEvents');
+            event.initEvent('click', true, true);
+            pom.dispatchEvent(event);
+        }
+        else {
+            pom.click();
+        }
+    },
+    printElement: function (elem) {
+        
+        if (!elem)
+            elem = $("#Modal");
+        if (elem.length > 0) {
+            var divPrint = $("<div id='divPrint'></div>");
+            $('body').append(divPrint);
+            elem.clone().appendTo(divPrint);
+            $("body *:not(#divPrint, #divPrint *)").addClass("printHide");
+            window.print();
+            //setTimeout(function () { $("body *").removeClass("printHide"); console.log('removing printing');}, 1000);
+            $("body *").removeClass("printHide"); 
+            divPrint.remove();
+            return true;
+        }
+        window.print();
+        return true;
+    },
+    getGridName: function (element) {
+        if (element == undefined) return null;
+        var gridName = element.data('id');
+        if (gridName == undefined) return null;
+        gridName = gridName.replace('_', '$');
+        return gridName;
+    },
+    decimal: {
+        removeFormatting: function (input) { 
+            if (input == undefined) return null;
+            input = input.replace(/\,/g, ''); //remove commas
+            var regex = /^\([\d,\.]*\)$/;            //parseParenthesesToNegative
+            if (input.match(regex)) 
+                input = '-' + input.replace(/[\(\)]/g, '');
+            return input;            
+        }
+    },
+    formatCurrency: function (num) {
+                num = num.toString().replace(/\$|\,/g, '');
+        if (isNaN(num))
+            num = "0";
+        sign = (num == (num = Math.abs(num)));
+        num = Math.floor(num * 100 + 0.50000000001);
+        cents = num % 100;
+        num = Math.floor(num / 100).toString();
+        if (cents < 10)
+            cents = "0" + cents;
+        for (var i = 0; i < Math.floor((num.length - (1 + i)) / 3); i++)
+            num = num.substring(0, num.length - (4 * i + 3)) + ',' + num.substring(num.length - (4 * i + 3));
+        return (((sign) ? '' : '-') + num + '.' + cents);
+    },
+    formatPercent: function (num) {
+        return parseFloat(Math.round(num * 100) / 100).toFixed(2) + "%";
+    },
+    formatSSN: function (val) {
+        var numbers = val.replace(/[^0-9]/g, '');
+        if (numbers.length == 9) {
+            return numbers.substr(0, 3) + '-' + numbers.substr(3, 2) + '-' + numbers.substr(5, 4);
+        }
+
+        return val;
+    },
+    confirm: function (message, text1, text2, action1, action2, title, titleClass, messageClass, button1Class, button2Class, confirmBoxClass, includeXbtn, xBtnAction) {
+        $.confirmPBSafe({
+            'title': title || '',
+            'titleClass': titleClass || '',
+            'message': message,
+            'messageClass': messageClass || '',
+            'confirmBoxClass': confirmBoxClass || '',
+            'includeXbtn': includeXbtn || false,
+            'xBtnAction': xBtnAction,
+            "buttons":
+            {
+                'confirm': {
+                    'name': text1,
+                    'class': button1Class || '',
+                    'action': action1 || ''
+                },
+                'cancel': {
+                    'name': text2,
+                    'class': button2Class || 'btn-secondary',
+                    'action': action2 || ''
+                }
+            }
+        });
+        $('#confirmBox').draggable({ cursor: "move", containment: "parent" })
+            .resizable({
+                minwidth: 100,
+                //maxHeight: parseInt($("#confirmOverlay").height(), 10),
+                //handles: "n,e,s,w"
+                handles: "e,w"
+            });
+    },
+    confirm3Buttons: function (message, text1, text2, text3, action1, action2, action3, title, titleClass, messageClass, button1Class, button2Class, button3Class, confirmBoxClass, includeXbtn, xBtnAction) {
+        $.confirmPBSafe({
+            'title': title || '',
+            'titleClass': titleClass || '',
+            'message': message,
+            'messageClass': messageClass || '',
+            'confirmBoxClass': confirmBoxClass || '',
+            'includeXbtn': includeXbtn || false,
+            'xBtnAction': xBtnAction,
+            "buttons":
+            {
+                'confirm': {
+                    'name': text1,
+                    'class': button1Class || '',
+                    'action': action1 || ''
+                },
+                'confirm2': {
+                    'name': text2,
+                    'class': button2Class || '',
+                    'action': action2 || ''
+                },
+                'cancel': {
+                    'name': text3,
+                    'class': button3Class || 'btn-secondary',
+                    'action': action3 || ''
+                }
+            }
+        });
+        $('#confirmBox').draggable({ cursor: "move", containment: "parent" })
+            .resizable({
+                minwidth: 100,
+                //maxHeight: parseInt($("#confirmOverlay").height(), 10),
+                //handles: "n,e,s,w"
+                handles: "e,w"
+            });
+    },
+    customFields: {
+        hide: function (id, reset) {
+            $("[cfRow='" + id + "']").css('display', 'none');
+            if (reset == true)
+                $("[cfValue='" + id + "'] input").val('');
+        },
+        show: function (id) {
+            $("[cfRow='" + id + "']").css('display', '');
+        }
+    },
+    switchTooltip: function (container) {
+        if (!container) container = 'body';
+        $(container).find('[title]:not(area,.skiptitle)').each(function () {           
+            $(this).attr("data-toggle", "tooltip").attr("data-placement", "auto").attr("data-boundary", "viewport")
+                .attr("data-trigger", "hover").tooltip({ html: true });
+        });
+    },
+    switchTooltipValue: function (id, title) {
+        Pbs.cleanToolTips();
+        var descSelector = '#' + id + '_Description';
+        bootstrap.Tooltip.getInstance(descSelector).dispose();
+        $(descSelector).attr("data-bs-original-title", title);
+        Pbs.switchTooltip('#' + id);
+    },
+    cleanToolTips: function () {
+        $('[role="tooltip"]').remove();
+    },
+    adjustGridExportButtons: function () {
+        //$('.WebGridExportButton, .WebGridExportButtonDisabled, .TabularGridExportButton').each(function () {            
+        //    var gridTable = $(this).next();
+        //    var top = gridTable.offset().top ;//(gridTable.outerHeight() + $(this).outerHeight()) / 2;           
+        //    var left = gridTable.offset().left - $(this).width();
+        //    $(this).offset({ top: top, left: left });
+        //});
+        $('.WebGridFrame, .TabularGridFrame, .WebGridFrameDisabled').mouseover(function () {
+            var exportBtn = $(this).prev();
+            if (!!exportBtn) {
+                var timeout = exportBtn.attr('data-timeout');
+                if (!!timeout)
+                    clearTimeout(timeout);
+                exportBtn.css('display', 'block');
+            }
+        }).mouseleave(function () {
+            var exportBtn = $(this).prev();
+            if (!!exportBtn) {
+                exportBtn.attr('data-timeout', setTimeout(function () {
+                    exportBtn.css('display', 'none').attr('data-timeout', '');
+                }, 5000));
+            }
+        });
+    },
+    changeAttributeName: function (oldName, newName, container) {//can be used to temporary disable some attribute driven actions.
+        if (!container)
+            container = 'body';
+        $(container).find('[' + oldName + ']').each(function () { var value = $(this).attr(oldName); $(this).attr(newName, value).removeAttr(oldName); });
+    },
+    removeVail: function (waitTime) {
+        if (!waitTime) return;
+        var until = Date.now() + waitTime;
+        //console.log('start ' + Date.now());
+        var intervalId = setInterval(function () {
+            //console.log('continue '+ Date.now());
+            if (Date.now() > until) {
+                //console.log('clear ' + Date.now());
+                clearInterval(intervalId);
+            }
+            else {
+                var lastdiv = $("body > div:not('.tooltip'):last");
+                console.log('looking ');
+                if (lastdiv.length > 0 && lastdiv.css('display') == 'block' && lastdiv.html() == '') {
+                    lastdiv.css('display', 'none');
+                    //console.log('found ');
+                    clearInterval(intervalId);
+                }
+            }
+        }, 100);        
+    },
+    showPopUp: function (id) { Fix.fixBootstrapModal($('#' + id + '_ModalDiv'), { show: true, backdrop: false }); },
+    hideTabIndices: function (container) {
+        if (!container)
+            container = $('body');
+        container.find('[tabindex]').each(function () { $(this).attr('data-tabindex', $(this).attr('tabindex')).removeAttr('tabindex'); });
+    },
+    recoverTabIndices: function (container) {
+        if (!container)
+            container = $('body');
+        container.find('[data-tabindex]').each(function () { $(this).attr('tabindex', $(this).attr('data-tabindex')).removeAttr('data-tabindex'); });
+    },
+    reloadCurrentTab: function () {
+        var clickAttr = 'data-reload-onclick';
+        var links = $('[' + clickAttr + ']');
+        if (links.length == 0)
+            return;
+        var link = $(links[0]);
+        link.attr('onclick', link.attr(clickAttr)).click();
+    },
+    copyToClipBoardHtml: function (html, containerId) {
+        var targetId = "_hiddenCopyHtml_";
+        if (containerId)
+            targetId = containerId + targetId;
+        var target = document.getElementById(targetId);
+        if (!target) {
+            target = document.createElement("div");
+            target.style.position = "absolute";
+            target.style.left = "-999px";
+            target.style.top = "-999px";
+            target.id = targetId;
+            if (containerId)
+                document.getElementById(containerId).appendChild(target);
+            else
+                document.body.appendChild(target);
+        }
+        target.innerHTML = html; 
+        const range = document.createRange();
+        range.selectNode(target);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        document.execCommand('copy');
+    },
+    copyToClipBoard: function (text, containerId) {
+        var targetId = "_hiddenCopyText_";
+        if (containerId)
+            targetId = containerId + targetId;
+        var target = document.getElementById(targetId);
+        text = text.trim();
+        if (!target) {
+            target = document.createElement("textarea");
+            target.style.position = "absolute";
+            target.style.left = "-999px";
+            target.style.top = "-999px";
+            target.id = targetId;
+            if (containerId)
+                document.getElementById(containerId).appendChild(target);
+            else
+                document.body.appendChild(target);
+        }
+        target.textContent = text;
+        target.focus();
+        target.setSelectionRange(0, text.length);
+        document.execCommand("copy");
+    },
+    removeModal: function (skipHeavyCleanup, doRemove) {
+        if (!Pbs.modal)
+            return;
+        var cmdStr = Pbs.getFunctionAsString(Pbs.LB.cancelCmdKey);
+        if ($(event.currentTarget).data("dismiss") === 'modal' && cmdStr !== 'Pbs.removeModal();' && cmdStr.indexOf('{Pbs.removeModal();}') == -1) {
+            if (typeof onCloseModalConfirmMsg !== undefined && typeof onCloseModalConfirmMsg === 'string') {
+                if (window.confirm(onCloseModalConfirmMsg)) {
+                    Pbs.executeFunction(Pbs.LB.cancelCmdKey);
+                } else {
+                    return;
+                }
+            } else {
+                Pbs.executeFunction(Pbs.LB.cancelCmdKey);
+            }
+        }
+
+        Pbs.modal.modal("hide");
+        $('body').removeClass("modal-open");
+        $('body').css('overflow', 'auto').css('padding-right', '0px');
+        if (skipHeavyCleanup == true) {
+            ;
+        }
+        else {
+            Pbs.LB.recoverKeyEvents();
+            //Pbs.adjustWindowToOriginalSize();
+        }
+        Pbs.modal = null;
+        //$('.pLightBox').empty();//not sure ??
+        //$('.pLightBox').html('');//not sure ??
+        $('#pLightBox > :last-child').remove();
+        Pbs.LB.resetProps();
+        if (Pbs.LB.isNested()) {//recover Outer LB
+            Pbs.LB.popFromOuterLB();
+        }
+        else {
+            if (doRemove == undefined || doRemove == true) {
+                $('.pLightBox').empty();
+                $('.pLightBox').html('');
+            }
+            Pbs.recoverTabIndices();
+        }
+        //remove backdrops if exceeded.
+        var backdropsAmount = $('div.modal-backdrop').length;
+        if (backdropsAmount > 0) {
+            var modalAmt = 0;
+            if (Pbs.LB.$divModal) {
+                modalAmt = 1;
+                modalAmt += Pbs.LB.outerLB.length;
+            }
+            while (backdropsAmount > modalAmt) {
+                $('div.modal-backdrop:last').remove();
+                backdropsAmount--;
+            }
+        }
+        Pbs.cleanToolTips();
+    },
+    LB: {//deals with getting modals and returning values.
+        $form: null,
+        $divModal: null,
+        url: null,
+        confirmCmdKey: null,
+        cancelCmdKey: null,
+        performCmdToPrevModalOverrideKey : null,
+        mainWindowProperties: {
+            onkeydown_array: [],
+            onkeyup_array: [],
+            onkeypress_array: []
+        },
+        waitForPrevModalToLoad:false, //sometimes we have more then one modals at load, so we want 1st one to be done and then process process next
+        outerLB: [],
+        resetProps: function () {
+            Pbs.LB.$form = null;
+            Pbs.LB.$divModal = null;
+            Pbs.LB.url = null;
+            Pbs.LB.confirmCmdKey = null;
+            Pbs.LB.cancelCmdKey = null;
+            Pbs.LB.performCmdToPrevModalOverrideKey = null;
+        },
+        timeoutId: null,
+        get: function (url, confirmCmdKey, cancelCmdKey) {
+            if (!jQuery.isReady) {//register 1st call, disregar following calls
+                if (Pbs.LB.timeoutId) return; 
+                Pbs.LB.timeoutId = setTimeout(function () { Pbs.LB.get(url, confirmCmdKey, cancelCmdKey); }, 200);
+                return;
+            }     
+            Pbs.LB.timeoutId = null;
+            if (Pbs.LB.waitForPrevModalToLoad) {
+                setTimeout(function () { Pbs.LB.get(url, confirmCmdKey, cancelCmdKey); }, 200);
+                return;
+            }
+            if (Pbs.LB.url && Pbs.LB.url != url)                
+                Pbs.LB.pushToOuterLB(); //if not the same url, push to outer array.
+            else {
+                $('#pLightBox > :last-child').remove();
+                $('div.modal-backdrop:last').remove();
+            }
+
+            //set url, cmds, reset the rest
+            Pbs.LB.url = url;
+            Pbs.LB.confirmCmdKey = confirmCmdKey;
+            Pbs.LB.cancelCmdKey = cancelCmdKey;
+            Pbs.LB.$form = null;
+            Pbs.LB.$divModal = null;
+            Pbs.LB.waitForPrevModalToLoad = true;
+            $('div.modal-content').prepend($('<div class="modal-veil"></div>'));
+            $.ajax({
+                type: "POST",
+                beforeSend: function (request) { request.setRequestHeader("PBS-LB", window.location.pathname);},
+                url: Pbs.LB.url,
+                data: '{}',
+                contentType: "application/x-www-form-urlencoded; charset=utf-8",
+                dataType: "html",
+                success: function (htm) {
+                    $('.modal-veil').remove();
+                    Pbs.LB.waitForPrevModalToLoad = false;
+                    if (Pbs.LB.dealWithErrorPage(htm))
+                        return;
+                    var form = Pbs.LB.getFormFromHtml(htm);
+                    if (!Pbs.LB.hasReturnValue(form)) {
+                        Pbs.LB.parse(Pbs.LB.getModalFromForm(form));
+                    }
+                },
+                error: function (xhr, ajaxOptions, thrownError) {
+                    $('.modal-veil').remove();
+                    Pbs.LB.waitForPrevModalToLoad = false;
+                    console.log(thrownError);
+                }
+            });
+        },
+        getFormFromHtml: function (htm) {//htm is string
+            var istart = htm.indexOf("<form");
+            var $form = $(htm.substring(istart, htm.indexOf("</form>") + 7 ));
+            Pbs.LB.$form = $form;
+            return $form;
+        },
+        getModalFromForm: function ($form) {//form is element   
+            var $divModal = $form.find('div#ModalDiv');
+            Pbs.LB.$divModal = $divModal;
+            return $divModal;
+        },
+        addScriptToBody: function (container, key) {//find corresponding script and attach to form
+            if (!key) return;
+            var script = container.find('script[data-id$="' + key + '"]'); 
+            if (!!script && script.length > 0)
+                $('body').append(script);
+        },
+        hasReturnValue: function (form) {
+            var rvKey = form.attr('data-lb-rv');
+
+            if (!!rvKey || rvKey == '') {                
+                Pbs.LB.addScriptToBody(form, rvKey);
+                var rv = Pbs.executeFunction(rvKey);
+
+                if (rv === 'ignore') {
+                    Pbs.LB.popFromOuterLB(true);
+                    return true;
+                }
+
+                var cmdType = form.attr('data-lb-cmdtype');
+                var newCmdKey = form.attr('data-lb-newcmd');
+                if (!newCmdKey) {
+                    if (cmdType == 'cancel')
+                        newCmdKey = Pbs.LB.cancelCmdKey;
+                    else
+                        newCmdKey = Pbs.LB.confirmCmdKey;
+                }
+                Pbs.LB.addScriptToBody(form, newCmdKey);
+                if (!!newCmdKey) {
+                    var newcmdStr = Pbs.getFunctionAsString(newCmdKey);
+                    if (newcmdStr.indexOf('Pbs.LB.postBack') > -1)
+                        Pbs.LB.popFromOuterLB();
+                }                
+                Pbs.LB.performCmd(newCmdKey, cmdType, rvKey);
+                return true;
+            }
+            return false;
+        },
+        parse: function (modal) {
+            //console.log('in parse');
+            Pbs.LB.hijackKeyEvents();
+            Pbs.hideTabIndices();
+            $('.calendarPopUpOuterDiv').remove();//remove any leftover calendar popups.
+            var pbsLBpostBack = 'Pbs.LB.postBack';
+            var preventDefault = "event.preventDefault(); ";
+
+            Fix.fixBootstrapModal(modal,{ show: true, backdrop: 'static' }); // modal.modal();            
+            modal.find('input[type="text"]').each(function () {
+                $(this).val($(this).val().replace(/^\,+|\,+$/g, ''));
+            });
+            modal.find('.I1DropDownListFrame').each(function () {
+                if ($(this).prop('i1OnChange')) {
+                    $(this).prop('i1OnChange', null);
+                    $('#' + $(this).attr('id') + '_I1PopupListTable').find('tr.I1DropDownListContentRow').attr('onclick', 'Pbs.LB.postBackDdl(this); return false;');
+                }
+            });
+
+            var doNotChangeJsPost = ":not([data-donotchangepost])";
+            modal.find('script' + doNotChangeJsPost).each(function () {
+                $(this).html($(this).html().replace(/__doPostBack/g, pbsLBpostBack));
+            });
+
+            var doNotChangePost = ":not('.donotchangepost')";
+            if (Pbs.LB.isNested()) doNotChangePost = "";
+
+            modal.find('table.WebGridFrame').each(function () {
+                var grid = $(this);
+                var name = grid.attr('id').replace('_', '$');
+                //grid.find("a.WebGridPagerLink" + doNotChangePost).each(function () {
+                //    var href = $(this).attr('href');
+                //    if (href)
+                //        $(this).attr('href', href.replace('__doPostBack', pbsLBpostBack));
+                //});
+                grid.find('td.WebGridStatusBarPagerCell[onclick]').each(function () {
+                    var page = $(this).attr('data-page');
+                    $(this).attr('onclick', pbsLBpostBack + '("' + name + '", "page_' + page + '"); return false;');
+                });
+            });
+            modal.find("[onclick]" + doNotChangePost).each(function () {
+                var onclick = $(this).attr("onclick");
+                if (onclick) $(this).attr("onclick", onclick.replace('__doPostBack', pbsLBpostBack));
+            });
+            modal.find("[onchange]" + doNotChangePost).each(function () {
+                var onchange = $(this).attr("onchange");
+                if (onchange) $(this).attr("onchange", onchange.replace('__doPostBack', pbsLBpostBack));
+            });
+            modal.find("[href]" + doNotChangePost).each(function () {
+                var href = $(this).attr("href");
+                if (href) $(this).attr("href", href.replace('__doPostBack', pbsLBpostBack));
+            });
+            if (!!Pbs.LB.confirmCmdKey) {
+                Pbs.LB.addScriptToBody(modal, Pbs.LB.confirmCmdKey);
+                modal.find('.directpostbackconfirm').each(function () {
+                    if ($(this).is(":submit"))//void double posts
+                        $(this).attr("onclick", preventDefault + "Pbs.executeFunction('" + Pbs.LB.confirmCmdKey + "');");
+                    else
+                        $(this).attr("onclick", "Pbs.executeFunction('" + Pbs.LB.confirmCmdKey + "');");
+                });
+            }
+            if (!!Pbs.LB.cancelCmdKey) {
+                Pbs.LB.addScriptToBody(modal, Pbs.LB.cancelCmdKey);
+                modal.find('.directpostbackcancel').each(function () {
+                    $(this).attr("onclick", "Pbs.executeFunction('" + Pbs.LB.cancelCmdKey + "');");
+                });
+            }
+            modal.find('[data-modal-width]').each(function () { $(this).closest('.modal-dialog').css('max-width', $(this).attr('data-modal-width')); });
+            modal.find('[data-modal-height]').each(function () { $(this).closest('.modal-dialog').css('height', $(this).attr('data-modal-height')); });
+
+            $('.pLightBox').append(modal);
+            Pbs.modal = modal;
+            Pbs.runJsFixes(modal);
+        },
+        chooseCommandKey: function (newCmdKey, cmdType) {
+            if (!!newCmdKey)
+                return newCmdKey;
+            if (cmdType == 'cancel' && !!Pbs.LB.cancelCmdKey)
+                return Pbs.LB.cancelCmdKey;
+            if (!!Pbs.LB.confirmCmdKey)
+                return Pbs.LB.confirmCmdKey;
+            return null;
+        },
+        performCmd: function (newCmd, cmdType, rvKey, close) {
+            //console.log('in performCmd');
+            var cmdKey = Pbs.LB.chooseCommandKey(newCmd, cmdType);
+            if (!!cmdKey) {
+                var rv = '';
+                if (!!rvKey)
+                    rv = Pbs.executeFunction(rvKey);
+
+                var cmdStr = Pbs.getFunctionAsString(cmdKey);
+                if (cmdStr.indexOf('__doPostBack') > -1) {
+                    Pbs.LB._doPostBack(cmdStr, rv);
+                    return;
+                }
+                Pbs.executeFunction(cmdKey, rv);
+                return;
+            }
+            else
+                console.log('command not defined to return value');
+            if (close)
+                Pbs.removeModal();
+        },
+        performCmdToPrevModal: function (newcmdKey) {
+            if (Pbs.LB.performCmdToPrevModalOverrideKey) {
+                Pbs.removeModal();
+                Pbs.executeFunction(Pbs.LB.performCmdToPrevModalOverrideKey);
+                return;
+            }
+            var cmdKey = newcmdKey;
+            if (!cmdKey)
+                cmdKey = Pbs.LB.confirmCmdKey;
+            if (!!cmdKey) {
+                Pbs.removeModal();
+                if (Pbs.LB.url) {//use lb version cmd (key ending with PbsLBpostBack )
+                    var lbcmdKey = cmdKey.replace('$$doPostBack', 'PbsLBpostBack')
+                    if (Pbs.functionMap.has(lbcmdKey))
+                        Pbs.executeFunction(lbcmdKey);
+                    else
+                        Pbs.executeFunction(cmdKey);
+                    return;
+                }
+                else {//use $$doPostBack version cmd (key passed in cmdKey)   
+                    var cmdStr = Pbs.getFunctionAsString(cmdKey);
+                    if (cmdStr.indexOf('$$doPostBack') > -1) {//this will post the whole page
+                        if (Pbs.LB._doPostBack(cmdStr) == true) //we might need return value here
+                            return;
+                    }
+                }
+                Pbs.executeFunction(cmdKey);
+            }
+            else
+                console.log('command not defined');
+        },
+        _doPostBack: function (cmd, rv) {
+            var args = Pbs.getPostBackParamsFromFunctionString(cmd);
+            if (args) {//this will post the whole page
+                //console.log('in __doPostBack');
+                //cmd = cmd.replace('__doPostBack', '');
+                //cmd = $.trim(cmd);
+                //cmd = cmd.substring(1, cmd.length - 1);
+                //var target = $.trim(args[0]);
+                //target = target.substring(1, target.length - 1);
+                //var argument = $.trim(args[1]);
+                //argument = argument.substring(1, argument.length - 1);
+                $('#__EVENTTARGET').val(args[0]);
+                if (args[1] == 'paramPlaceHolder') {
+                    if (!!rv)
+                        args[1] = rv;
+                    else
+                        args[1] = '';
+                }  
+                $('#__EVENTARGUMENT').val(args[1]);
+                Pbs.removeModal();
+                var btn = $('<input type="submit" onclick="' + cmd + ';" />');
+                $('form').append(btn);
+                btn.click();
+                return true;
+            }
+            return false;
+        },
+        postBackDdl: function (tr) {
+            var id = $(tr).closest('table').attr('id').replace('_I1PopupBody', '');
+            $('#' + id + '_Input').val($(tr).attr('i1keyvalue'));
+            Pbs.LB.postBack(id);
+        },
+        copyValue: function (selector, from, to) {
+            var value = from.val();
+            var type = from.attr('type');
+            if (type == 'checkbox') {
+                if (from.is(':checked'))
+                    to.find(selector).val('on').prop('checked', true);
+                else
+                    to.find(selector).val('off').prop('checked', false);
+            }
+            else if (type == 'radio') {
+                if (from.is(':checked'))
+                    to.find(selector).prop('checked', true);
+                else
+                    to.find(selector).prop('checked', false);
+            }
+            else if (type == 'file') {
+                to.find(selector).remove();
+                to.append(from);
+            }
+            else
+                to.find(selector).val(value);
+        },
+        getSelector: function (container) {
+            var id = container.attr('id');
+            if (id)
+                return '#' + id;
+            var name = container.attr('name');
+            if (name)
+                return '[name="' + name + '"]';
+        },
+        postBack: function (target, arg) {
+            //console.log('in postback');
+            if (!Pbs.LB.$form || !Pbs.LB.$divModal)
+                return;
+
+            htmlEncodeTextAreaFields();
+            // Check for dangerous characters in modal windows
+            if (Pbs.LB.$divModal && anyInputHasDangerousCharacters()) {
+                // Need to bring error window on top of the current modal
+                $("div[role='dialog']").css("z-index", "10001");;
+                return false;
+            }
+
+            var html = Pbs.LB.$divModal.html();
+            Pbs.LB.$form.append($(html));
+
+            Pbs.LB.$divModal.find(':input').each(function () {
+                var selector = Pbs.LB.getSelector($(this));
+                if (selector) 
+                    Pbs.LB.copyValue(selector, $(this), Pbs.LB.$form);
+            });
+
+            Pbs.LB.$divModal.find('textarea').each(function () {
+                var id = $(this).attr('id');
+                var value = $(this).val();
+                if ($(this).attr('data-iseditor') == 'true' && !($(this).attr('data-iseditor') == 'false')) 
+                    value = Pbs.editors[id].getData(false);
+                Pbs.LB.$form.find('#' + id).val(value);
+            });
+
+            if (target)
+                Pbs.LB.$form.find('#__EVENTTARGET').val(target);
+            if (arg)
+                Pbs.LB.$form.find('#__EVENTARGUMENT').val(arg);
+            else
+                Pbs.LB.$form.find('#__EVENTARGUMENT').val('');
+            Pbs.LB.$divModal.find('div.modal-content').prepend($('<div class="modal-veil"></div>'));
+            if (Pbs.LB.$form.find(':file').length > 0) {
+                var data = new FormData(Pbs.LB.$form[0]);
+                $.ajax({
+                    type: "POST",
+                    enctype: 'multipart/form-data',
+                    processData: false,
+                    contentType: false,
+                    cache: false,
+                    timeout: 600000,
+                    beforeSend: function (request) { request.setRequestHeader("PBS-LB", window.location.pathname); },
+                    url: Pbs.LB.url,
+                    data: data,
+                    success: function (htm, status, xhr) { Pbs.LB.afterSuccessPostBack(htm, status, xhr); }
+                });
+            }
+            else {
+                $.ajax({
+                    type: "POST",
+                    beforeSend: function (request) { request.setRequestHeader("PBS-LB", window.location.pathname); },
+                    url: Pbs.LB.url,
+                    data: Pbs.LB.$form.serialize(),
+                    success: function (htm, status, xhr) { Pbs.LB.afterSuccessPostBack(htm, status, xhr);}
+                });
+            }
+        },
+        afterSuccessPostBack: function (htm, status, xhr) {
+            $('#pLightBox > :last-child').remove();//on postback alway remove last modal
+            $('div.modal-backdrop:last').remove();//clean last backdrop
+            if (Pbs.LB.dealWithErrorPage(htm))
+                return;
+            //Pbs.LB.popFromOuterLB();
+            var form = Pbs.LB.getFormFromHtml(htm);
+            if (!Pbs.LB.hasReturnValue(form)) {
+                Pbs.LB.parse(Pbs.LB.getModalFromForm(form));
+            }
+            $('.modal-veil').remove();
+        },
+        dealWithErrorPage: function (htm) {
+            if (htm.indexOf('<title>public Error</title>') == -1)
+                return false;
+            Pbs.removeModal();
+            var $html = $(htm);
+            var $form = Pbs.LB.getFormFromHtml(htm);
+            if (Pbs.LB.hasReturnValue($form))
+                return;
+            var table = $html.find('table.tbError');
+            var modal = Pbs.LB.getModalTemplate();
+            modal.find('.modal-content').css('width', '800px');
+            modal.find('#Modal').append(table);
+
+            //copied from parse
+            var doNotChangePost = ":not('.donotchangepost')";
+            table.find("[onclick]" + doNotChangePost).each(function () {
+                var onclick = $(this).attr("onclick");
+                if (onclick) $(this).attr("onclick", onclick.replace('__doPostBack', 'Pbs.LB.postBack'));
+            });   
+
+            Pbs.LB.$divModal = modal;
+
+            Fix.fixBootstrapModal(modal, { show: true, backdrop: 'static' });//modal.modal({ show: true, backdrop: 'static' });
+            $('.pLightBox').append(modal);
+            Pbs.modal = modal;
+            Pbs.runJsFixes(modal);
+            return true;
+        },
+        hijackKeyEvents: function () {
+            if (Pbs.LB.isNested())
+                return; //it was done on 1st modal, so skip it.
+            Pbs.changeAttributeName('accesskey', 'noaccesskey');
+            if (!!window.onkeydown_array)
+                Pbs.LB.mainWindowProperties.onkeydown_array = window.onkeydown_array;
+            if (!!window.onkeyup_array)
+                Pbs.LB.mainWindowProperties.onkeyup_array = window.onkeyup_array;
+            if (!!window.onkeypress_array)
+                Pbs.LB.mainWindowProperties.onkeypress_array = window.onkeypress_array;
+            onkeydown_array = [];
+            onkeyup_array = [];
+            onkeypress_array = [];            
+        },
+        recoverKeyEvents: function () {
+            if (Pbs.LB.isNested())
+                return; //no recovery if there are still nested modals.
+            Pbs.changeAttributeName('noaccesskey', 'accesskey');
+            if (!!Pbs.LB.mainWindowProperties.onkeydown_array)
+                onkeydown_array = Pbs.LB.mainWindowProperties.onkeydown_array;
+            if (!!Pbs.LB.mainWindowProperties.onkeyup_array)
+                onkeyup_array = Pbs.LB.mainWindowProperties.onkeyup_array;
+            if (!!Pbs.LB.mainWindowProperties.onkeypress_array)
+                onkeypress_array = Pbs.LB.mainWindowProperties.onkeypress_array;
+        },
+        isNested: function () {
+            if (Pbs.LB.outerLB.length > 0)
+                return true;
+            return false;
+        },
+        pushToOuterLB: function () {
+            var outer = {};
+            outer.$form = Pbs.LB.$form;
+            outer.url = Pbs.LB.url;
+            outer.confirmCmdKey = Pbs.LB.confirmCmdKey;
+            outer.cancelCmdKey = Pbs.LB.cancelCmdKey;
+            outer.$divModal = Pbs.LB.$divModal; 
+            outer.performCmdToPrevModalOverrideKey = Pbs.LB.performCmdToPrevModalOverrideKey;
+            Pbs.LB.outerLB.push(outer);
+        },
+        popFromOuterLB: function (skipParse) {
+            var outer = Pbs.LB.outerLB.pop();
+            if (!outer)
+                return;
+            Pbs.LB.$form = outer.$form;
+            Pbs.LB.url = outer.url;
+            Pbs.LB.confirmCmdKey = outer.confirmCmdKey;
+            Pbs.LB.cancelCmdKey = outer.cancelCmdKey;
+            Pbs.LB.$divModal = outer.$divModal;
+            Pbs.LB.performCmdToPrevModalOverrideKey = outer.performCmdToPrevModalOverrideKey;
+            Pbs.recoverTabIndices(Pbs.LB.$divModal);
+            //Pbs.modal = outer.$divModal;
+            if (!skipParse) Pbs.LB.parse(outer.$divModal);
+        },
+        getFromOuterLB: function () {
+            if (!Pbs.LB.outerLB.length)
+                return;
+            var outer = Pbs.LB.outerLB[Pbs.LB.outerLB.length - 1];
+            if (!outer)
+                return;
+            Pbs.LB.$form = outer.$form;
+            Pbs.LB.url = outer.url;
+            Pbs.LB.confirmCmdKey = outer.confirmCmdKey;
+            Pbs.LB.cancelCmdKey = outer.cancelCmdKey;
+            Pbs.LB.$divModal = outer.$divModal;
+        },
+        showTextInModalTemplate: function (text, btnTitle, width, title, height, $class) {
+            Pbs.LB.showInModalTemplateNoHeader(
+                '<div id="textInModal"  style="display:none;"><div style="width:100%; " class="ControlLayoutCell">' + text + '</div >' +
+                    '<div style="width:100%; text-align:right; padding-top:10px;" class="ControlLayoutCell"> ' +
+                        '<input type="button" onclick="Pbs.removeModal();" class="ButtonGeneric" value="' + btnTitle + '" /></div></div>'
+                , width, title, height, $class);
+        },
+        getModalTemplate: function (onClose, isSubmit = false) {
+            return $('<div class="modal" id="ModalDiv" style="z-index:10001;" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" style="max-width:1100px !important; height:550px !important; "  role="document"><div class="modal-content"><div class="modal-header" id="ModalHeader" ><h5 class="modal-title" id="ModalLabel" ></h5><button type="button" class="close" data-call-before-close=' + onClose + ' data-dismiss="modal" aria-label="Close" onclick=' + (isSubmit ? '"document.forms[0].submit();"' : '"Pbs.removeModal();"') + '><span aria-hidden="true">&times;</span></button></div><div class="modal-body" id="Modal" ></div></div></div></div>;');
+        },
+        showInModalTemplate: function (selector, width, title, height, $class, onClose, isSubmit = false) {
+            var modal = Pbs.LB.getModalTemplate(onClose, isSubmit);
+            console.log(modal);
+            //jquery does not accept !important, use style attribute.
+            modal.find('.modal-dialog').attr('style', function (i, s) { return (s || '') + '; width:' + (width || '800px') + ' !important; height: ' + (height || '550px') + ' !important' }).addClass($class || '');
+            modal.find('#ModalLabel').text(title || '');
+            modal.find('#Modal').append($(selector).css('display', 'block'));
+            Fix.fixBootstrapModal(modal, { show: true, backdrop: 'static', keyboard: false });//modal.modal({ show: true, backdrop: 'static', keyboard: false  });
+            if ($(selector).attr('data-holder-container')) {
+                var onCloseClick = '$("' + $(selector).attr('data-holder-container') + '").append($(this).closest(".modal").find("' + selector + '")); $("' + selector + '").hide(); Pbs.removeModal();';
+                var closeButton = modal.find('button.close,button.ActAsClose,[type="button"].closemodal,:button[value="Close"]');
+                closeButton.each(function (i, curBtn) {
+                    var btn = $(curBtn);
+                    var callBeforeCommand = "";
+                    if (btn.attr('data-call-before-close')) {
+                        callBeforeCommand = btn.attr('data-call-before-close');
+                    }
+                    btn.attr('onclick', callBeforeCommand + "; " + onCloseClick);
+                })
+            }
+            $('.pLightBox').append(modal);
+            Pbs.modal = modal;
+            Pbs.runJsFixes(modal);
+        },
+        cleanModalStylingLeftoversString: '$(".modal-backdrop.show:last").remove(); $("body").css("overflow","").css("padding-right",""); $("body").removeClass("modal-open"); ',
+        showInModalTemplatePopup: function (selector, width, title, height, $class) {
+            var modal = Pbs.LB.getModalTemplate();
+            //jquery does not accept !important, use style attribute.
+            modal.find('.modal-dialog').attr('style', function (i, s) { return (s || '') + '; width:' + (width || '800px') + ' !important; height: ' + (height || '550px') + ' !important' }).addClass($class || '');
+            modal.find('#ModalLabel').text(title || '');
+            modal.find('#Modal').append($(selector).css('display', 'block'));
+            Fix.fixBootstrapModal(modal, { show: true, backdrop: 'static', keyboard: false });//modal.modal({ show: true, backdrop: 'static', keyboard: false  });
+            if ($(selector).attr('data-holder-container')) {
+                var onCloseClick = 'var tempDiv =  $("' + selector + '").closest("#ModalDiv"); $("' + $(selector).attr('data-holder-container') + '").append($(this).closest(".modal").find("' + selector + '")); $("' + selector + '").hide(); tempDiv.remove(); ' + Pbs.LB.cleanModalStylingLeftoversString;
+                var closeButton = modal.find('button.close,button.ActAsClose,[type="button"].closemodal,:button[value="Close"]');
+                closeButton.each(function (i, curBtn) {
+                    var btn = $(curBtn);
+                    var callBeforeCommand = "";
+                    if (btn.attr('data-call-before-close')) {
+                        callBeforeCommand = btn.attr('data-call-before-close');
+                    }
+                    btn.attr('onclick', callBeforeCommand + "; " + onCloseClick);
+                })
+            }
+            $('.pLightBox').append(modal);
+            Pbs.modal = modal;
+            Pbs.runJsFixes(modal);
+        },
+        getModalTemplateNoHeader: function () {
+            return $('<div class="modal" id="ModalDiv" style="z-index:10001;" tabindex="-1" role="dialog" aria-labelledby="" aria-hidden="true"><div class="modal-dialog modal-dialog-centered" style="max-width:1100px !important; height:550px !important; "  role="document"><div class="modal-content"><div class="modal-body" id="Modal" ></div></div></div></div>;');
+        },
+        showInModalTemplateNoHeader: function (selector, width, title, height, $class) {
+            var modal = Pbs.LB.getModalTemplate();
+
+            if (!title)
+                modal = Pbs.LB.getModalTemplateNoHeader();
+            else
+                modal.find('#ModalLabel').text(title || '');
+
+            modal.find('.modal-dialog').attr('style', function (i, s) { return (s || '') + '; width:' + (width || '800px') + ' !important; height: ' + (height || '550px') + ' !important' }).addClass($class || '');
+            modal.find('#Modal').append($(selector).css('display', 'block'));
+            Fix.fixBootstrapModal(modal, {show: true, backdrop: 'static', keyboard: false});//modal.modal({ show: true, backdrop: 'static', keyboard: false });
+            //if ($(selector).attr('data-holder-container'))
+            //    modal.find('button.close').attr('onclick', '$("' + $(selector).attr('data-holder-container') + '").append($(this).closest(".modal").find("' + selector + '")); $("' + selector + '").hide(); Pbs.removeModal(); ');
+            if ($(selector).attr('data-holder-container'))
+                modal.find('button.close').attr('onclick', '$("' + $(selector).attr('data-holder-container') + '").append($(this).closest(".modal").find("' + selector + '")); $("' + selector + '").hide();');
+            $('.pLightBox').append(modal);
+            Pbs.modal = modal;
+            Pbs.runJsFixes(modal);
+        },
+        draggable: function () { if($('.modal').draggable) $('.modal').draggable({ handle: '.modal-header' }); }
+    },
+    runJsFixes: function (container) {
+        if (!container)
+            container = $('body');
+        container.find('input[type="checkbox"]:not([data-runjsfixes])').each(function () {
+            var style = $(this).attr('data-style');
+            if (!style)  style = '';
+            $(this).attr('data-runjsfixes', '1').after('<label for="' + $(this).attr('id') + '" style="' + style + '" />');
+        });
+        container.find('[data-shrinkifempty]:not([data-runjsfixes])').each(function () {
+            if ($(this).html().trim() == '')
+                $(this).css("width",  $(this).attr('data-shrinkifempty') || '10px');            
+        });    
+
+        container.find('.fileGeneric:not([data-runjsfixes])').each(function () {
+            var style = "";
+            if (!!$(this).attr('style'))
+                style = "style='" + $(this).attr('style') + "'";
+            $(this).attr('data-runjsfixes', '1').after('<label class="lblFileButton ButtonGeneric" for="' + $(this).attr('id') + '">' +
+                ($(this).attr('data-label') || 'Choose File') + '</label><label ' + style + ' for="' + $(this).attr('id') + '" class="lblFileText"></label>');
+        });
+        container.find('a.NewWindow').each(function () { $(this).attr("target", "_blank"); });
+        container.find('span.I1DropDownListLabel:not([data-runjsfixes])').each(function () { $(this).attr('data-runjsfixes', '1').wrap("<div class='I1DropDownDisabled'></div>"); });
+        container.find('span.TextBoxEditDisabled:not([data-runjsfixes])').each(function () { $(this).attr('data-runjsfixes', '1').wrap("<div class='I1TextBoxDisabled'></div>"); });
+        container.find('.matchWithChildTd').closest('table').find('col').first().css('width', $('.matchWithChildTd table').width());
+        container.find('.removeOnClickAttribute').attr('onclick', '');
+        container.find('.I1DropDownListCaptionCell, .I1DropDownListCaptionCellHighlighted').each(function () { if ($(this).text() == '') $(this).css('height', '27px'); });
+        container.find('.WebGridFrame tr, .WebGridFrameDisabled tr').each(function () { $(this).find('input[type="checkbox"]').first().addClass('fistcheckboxinrow'); });
+        container.find(".grid_Scroller").on("scroll", function () { Pbs.cleanToolTips(); });
+        container.find('a.resetHref').each(function () { $(this).attr('href', '#'); });
+        container.find('.i1DateTimePicker').each(function () {
+            var format = $(this).attr('data-format');// ?? 'mm/dd/yyyy HH:ii' 
+            if (!format)
+                format = 'mm/dd/yyyy hh:ii';
+            $(this).datetimepicker({
+                format: format, initialDate: new Date(), autoclose: true, todayBtn: true, formatViewType: 'date'});
+        });
+        container.find('.resizeParentTd, .PanelGenericFooterCell td > input[type="button"], .UserControlFooter  td > input[type="button"]').each(function () {
+            $(this).parent().css("width", ($(this).val().length * 11 + 20) + 'px');
+        });
+        if (Pbs.browser.isIE()) {
+            container.find('.I1DropDownListCaptionCell').each(function () { if ($(this).html() == '<nobr></nobr>') $(this).html('<nobr>&nbsp;</nobr>'); });
+        }
+        container.find('[tabindex]').each(function (index) { if ($(this).attr('tabindex') != '-1') $(this).attr('tabindex', '0'); });//index + 1
+        container.find('div.I1DropDownDisabled span.I1DropDownListLabel').each(function () { if ($(this).text() == '[Select an Item]') $(this).text(''); });
+        Pbs.switchTooltip();
+        Pbs.adjustGridExportButtons();
+        Pbs.cleanToolTips();
+        Pbs.LB.draggable();
+        Pbs.adjustWindowToRecommendedSize();
+        $('.modal-veil').remove();
+        //Pbs.setFocus(container); 
+
+        //if (!IsChrome()) {
+        //    container.on('keydown', function (event) {
+        //        console.log('key down' + event.which);
+        //        if (event.which == 18) Pbs.HotKey.altOn = true; else Pbs.HotKey.trigger(event.keyCode);
+        //        console.log('alton - ' + Pbs.HotKey.altOn);
+        //    })
+        //        .on('keyup', function (event) {
+        //            console.log('key up' + event.which);
+        //            if (event.which == 18) Pbs.HotKey.altOn = false;
+        //            console.log('alton - ' + Pbs.HotKey.altOn);
+        //        });
+        //    container.find('[accesskey]').each(function () { Pbs.HotKey.accessKeys[$(this).attr('accesskey')] = $(this); });
+        //}
+
+    },
+    messagePanel: function () {
+        $('.messagePanelOpen').click(function (event) {
+            event.preventDefault();
+            $('.messagePanelContainer').removeClass('is-hidden').addClass('is-visible');
+            $(this).hide();
+        });
+
+        if (window.openCustomerPanelOnLoad == true) $('.messagePanelOpen').click();
+        if (window.focusOnSelectors) Pbs.setFocus(window.focusOnSelectors);
+
+        $('.messagePanelCloseButton').click(function (event) {
+            event.preventDefault();
+            $('.messagePanelContainer').addClass('is-hidden');
+            $('.messagePanelOpen').show();
+        });
+
+        $('.agentMessageOpenButton').click(function (event) {
+            event.preventDefault();
+            $('.agentMessagePanelContainer').removeClass('is-hidden').addClass('is-visible');
+            $('.agentMessageOpen').hide();
+            $('.agentMessageCloseButton').show();
+        });
+
+        $('.agentMessageCloseButton').click(function (event) {
+            event.preventDefault();
+            $('.agentMessagePanelContainer').addClass('is-hidden');//.removeClass('is-visible');
+            $('.agentMessageOpen').show();
+            $(this).hide();
+        });
+    },
+    HotKey: {
+        altOn: false,
+        accessKeys: {},
+        trigger: function (keycode) {
+            console.log('in trigger ' + keycode);
+            var hk = this.accessKeys[keycode];
+            if (!!hk) { console.log('hot key found'); hk.click(); }
+        }
+    },
+    hashCode: function (value) {
+        var hash = 0, len = value.length, i = 0;
+        if (len > 0)
+            while (i < len)
+                hash = (hash << 5) - hash + value.charCodeAt(i++) | 0;
+        return hash;
+    },
+    toggleDisabledAttrOnChange: function (targetSelectors, changeSelectors) {
+        Pbs.toggleDisabledAttr(null, targetSelectors, changeSelectors);
+        $(changeSelectors).on("input", function () { Pbs.toggleDisabledAttr(this, targetSelectors, changeSelectors);});
+    },
+    toggleDisabledAttr: function (caller, targetSelectors, changeSelectors) {  
+
+        function criteriaMet(obj) {
+            if (!obj)
+                return false;
+            var value = obj.value;
+            return obj.hasAttribute('data-orig-val') && obj.getAttribute('data-orig-val') != value ||
+                obj.hasAttribute('data-orig-length') && obj.getAttribute('data-orig-length') != value.length ||
+                obj.hasAttribute('data-orig-hash') && obj.getAttribute('data-orig-hash') != Pbs.hashCode(value);
+        }
+
+        if (criteriaMet(caller)) {
+            $(targetSelectors).prop('disabled', false);
+            return;
+        }
+        var changeFields = $(changeSelectors);
+        var len = changeFields.length;
+        for (var i = 0; i < len; i++) {
+            if (criteriaMet(changeFields[0]))  {
+                $(targetSelectors).prop('disabled', false);
+                return;
+            }
+        }
+        $(targetSelectors).prop('disabled', true);        
+    },
+    fieldValueSeparator: '~',
+    splitWithFieldValueSeparator: function (value) { return value.split(Pbs.fieldValueSeparator); },
+    addValidator: {
+        requiredRadio: function () {
+            $.validator.addMethod("requiredradio",
+                function (value, element) {
+                    return $('[name="' + $(element).attr('name') + '"]:checked').length > 0;
+                });
+            $("[data-val-requiredradio]").each(function () {
+                $(this).rules("add",
+                    {
+                        requiredradio: true,
+                        messages: {
+                            requiredradio: $(this).attr('data-val-requiredradio')
+                        }
+                    });
+            });
+        },
+        requiredChecked: function () {
+            $.validator.addMethod("requiredchecked",
+                function (value, element) {
+                    if (value != "true" && value != "on")
+                        return false;
+                    return true;
+                });
+            $("[data-val-requiredchecked]").each(function () {
+                $(this).rules("add",
+                    {
+                        requiredchecked: true,
+                        messages: {
+                            requiredchecked: $(this).attr('data-val-requiredchecked')
+                        }
+                    });
+            });
+        },
+        requiredWhen: function () {
+            $.validator.addMethod("requiredwhen",
+                function (value, element) {
+                    var fieldToCheckWithId = $(element).attr('data-val-dependingonproperty');
+                    var fieldToCheckWith = $('#' + fieldToCheckWithId);
+                    if (!fieldToCheckWith)
+                        return true;
+                    var valueToCheckWith = fieldToCheckWith.val();
+                    if (fieldToCheckWith.attr("type") == "checkbox" || fieldToCheckWith.attr("type") == "radio") {
+                        if ($('#' + fieldToCheckWithId + ':checked').length == 1)
+                            valueToCheckWith = "True";
+                        else
+                            valueToCheckWith = "False";
+                    }
+                    var valueWhen = $(element).attr('data-val-targetvalue');
+                    if ($.inArray(valueToCheckWith, Pbs.splitWithFieldValueSeparator(valueWhen)) == -1)
+                        return true;
+                    if (!value)
+                        return false;
+                    return true;
+                });
+            $("[data-val-requiredwhen]").each(function () {
+                $(this).rules("add",
+                    {
+                        requiredwhen: true,
+                        messages: {
+                            requiredwhen: $(this).attr('data-val-requiredwhen')
+                        }
+                    });
+            });
+        },
+        cc: function () {
+            $.validator.addMethod("cc",
+                function (value, element) {
+                    if (!value)
+                        return true;
+                    if (/[^0-9-\s]+/.test(value)) return false;
+
+                    var nCheck = 0, nDigit = 0, bEven = false;
+                    value = value.replace(/\D/g, "");
+
+                    for (var n = value.length - 1; n >= 0; n--) {
+                        var cDigit = value.charAt(n);
+                        nDigit = parseInt(cDigit, 10);
+
+                        if (bEven) {
+                            if ((nDigit *= 2) > 9) nDigit -= 9;
+                        }
+
+                        nCheck += nDigit;
+                        bEven = !bEven;
+                    }
+
+                    return (nCheck % 10) == 0;
+                });
+            $("[data-val-cc]").each(function () {
+                $(this).rules("add",
+                    {
+                        cc: true,
+                        messages: {
+                            cc: $(this).attr('data-val-cc')
+                        }
+                    });
+            });
+        },
+        aba: function () {
+            $.validator.addMethod("aba",
+                function (value, element) {
+                    if (!value)
+                        return true;
+                    if (!/^\d{9}$/.test(value)) return false;
+
+                    n = 0;
+                    for (i = 0; i < value.length; i += 3) {
+                        n += parseInt(value.charAt(i), 10) * 3
+                            + parseInt(value.charAt(i + 1), 10) * 7
+                            + parseInt(value.charAt(i + 2), 10);
+                    }
+
+                    if (n != 0 && n % 10 == 0)
+                        return true;
+                    else
+                        return false;
+                });
+            $("[data-val-aba]").each(function () {
+                $(this).rules("add",
+                    {
+                        aba: true,
+                        messages: {
+                            aba: $(this).attr('data-val-aba')
+                        }
+                    });
+            });
+        },
+        ccexpdate: function () {
+            $.validator.addMethod("ccexpdate",
+                function (value, element) {
+                    if (!value)
+                        return true;
+                    if (!(/^((0[1-9])|(1[0-2]))\/[0-9]{4}$/.test(value)))
+                        return true;
+                    var arr = value.split('/');
+                    return new Date(arr[1], arr[0]) >= new Date();
+                });
+            $("[data-val-ccexpdate]").each(function () {
+                $(this).rules("add",
+                    {
+                        ccexpdate: true,
+                        messages: {
+                            ccexpdate: $(this).attr('data-val-ccexpdate')
+                        }
+                    });
+            });
+        },
+        postalCode: function () {
+            $.validator.addMethod("postalcode",
+                function (value, element) {
+                    if (!value)
+                        return true;
+                    var countryField = $('#' + $(element).attr('data-val-countryproperty'));
+                    if (!countryField)
+                        return true;
+                    var countryId = countryField.val();
+                    if (countryId == '1')
+                        return /^\d{5}-?(\d{4})?$/.test(value);
+                    else if (countryId == '2')
+                        return /^([a-zA-Z]\d[a-zA-Z]\d[a-zA-Z]\d)$/.test(value);
+                    return true;
+                });
+            $("[data-val-postalcode]").each(function () {
+                $(this).rules("add",
+                    {
+                        postalcode: true,
+                        messages: {
+                            postalcode: $(this).attr('data-val-postalcode')
+                        }
+                    });
+            });
+        }
+
+    },
+    hasDangerousCharacters: function (text) {
+        if (/(\<([a-z!/?]))|(&#)/ig.test(text)) {
+            return true;
+        }
+        return false;
+    },
+    showDangerousCharactersAlert: function (text) {
+        $alert('Potentially dangerous input detected. "' + htmlEncodeTextArea(new String(text).match(/(\<([a-z!/?]))|(&#)/ig)[0]) + '" pattern is not allowed.');
+    },   
+    togglePasswordVisibility: function (e) {
+        var icon = $(e);
+        var password = icon.prev()[0];
+        if (password.type === "password") {
+            password.type = "text";
+            icon.addClass("fa-eye-slash");
+            icon.removeClass("fa-eye");
+        } else {
+            password.type = "password";
+            icon.addClass("fa-eye");
+            icon.removeClass("fa-eye-slash");
+        }
+    }
+};
+
+$(document).ready(function () {
+
+    // IE11 Fix - A ponyfill that provides client-side support for CSS custom properties (aka “CSS variables”) in legacy and modern browsers.
+    // https://stackoverflow.com/questions/46429937/ie11-does-a-polyfill-script-exist-for-css-variables
+    //https://jhildenbiddle.github.io/css-vars-ponyfill/#/?id=options
+    if (typeof cssVars === 'function')
+        cssVars({ 
+            // Options ...
+        });
+});
+$(document).ready(function () {   
+    $('.pLightBox').on("click", "#ModalDiv .ddlButton", function () {
+        var id = $(this).closest('.ddlButtonInnerTable').attr('id').replace('_Button', '_PopupListContainer');
+        $('#' + id).position({
+            my: "left top",
+            at: "left bottom",
+            of: $(this).closest('.I1DropDownListFrame'),
+            collision: "fit"
+        });
+    });
+    $('.pLightBox').on("click", "#ModalDiv .I1DropDownListCaptionCell, #ModalDiv .I1DropDownListCaptionCellHighlighted", function () {
+        var id = $(this).attr('id').replace('_CaptionCell', '_PopupListContainer');
+        $('#' + id).position({
+            my: "left top",
+            at: "left bottom",
+            of: $(this).closest('.I1DropDownListFrame'),
+            collision: "fit"
+        });
+    });
+    $('.pLightBox').on("click", "#ModalDiv .I1DropDownListFrame", function () {
+        $('#' +  $(this).attr('id') + '_PopupListContainer').position({
+            my: "left top",
+            at: "left bottom",
+            of: $(this).closest('.I1DropDownListFrame'),
+            collision: "fit"
+        });
+    });
+    // Add toggle icon for each password input
+    $("input[type='password']:visible")
+        .after('<i class="fa fa-eye password-visibility-toggle" onclick="Pbs.togglePasswordVisibility(this)" />');
+    $('body').on('keypress', function (args) {
+        if (args.keyCode == 13 && $('#pLightBox :submit').length != 0) {
+            $('#pLightBox :submit').click();
+            return false;
+        }
+    });
+    //this portion will be outdated once we get rid off popups
+    $('.openWindow').click(function (event) {
+        var url = $(this).attr("href");
+        var windowName = $(this).attr("data-windowName");
+        var width = $(this).attr("data-width");
+        var height = $(this).attr("data-height");
+        var locX = $(this).attr("data-locX");
+        var locY = $(this).attr("data-locY");
+
+        OpenWindow(url, windowName, width, height, locX, locY);
+
+        event.preventDefault();
+    });
+
+    Pbs.messagePanel();
+
+    //in dialogs make sure that single submit or button inputs have focus
+    if (window.location.href.toLowerCase().indexOf('dialog') > -1) {
+        var submits = $(":submit").length;
+        if (submits == 1) {//default to it
+            $(":submit").focus();
+        }
+        else if (submits == 0) {//check for buttons
+            var buttons = $(":button").length;
+            if (buttons == 1) {//default to it
+                $(":button").focus();
+            }
+        }
+
+        Fix.windowY();
+        Fix.fixDatePicker();
+
+    }
+
+    Fix.fixDropDown();
+
+    $('.divPbsLogoLeft').css('min-width', $('.divPbsLogoRight').width() + 50);
+
+    //this portion for customer portal
+    $('.btnEdit').click(function (event) {
+        event.preventDefault();
+        if ($(this).val() == 'Edit') {
+            $(this).val('Cancel');
+
+            $('input[readonly]').attr('notreadonly', '').removeAttr('readonly');
+            $('.ReadOnlyPlaceHolder').css('display', 'none');
+            $('table[showOnClientSideEdit]').css('display', 'inline-block');
+            $('.btnSave').removeClass('ButtonGenericDisabled').removeAttr("disabled");
+        }
+        else {//cancel
+            if (confirm('Are you sure you want to cancel? All your changes will be lost.') == false)
+                return;
+            $(this).val('Edit');
+            $('input[originalvalue]').each(function () {
+                $(this).val($(this).attr('originalvalue'));
+            });
+
+            $('input[notreadonly]').attr('readonly', '').removeAttr('notreadonly');
+
+            $('.ReadOnlyPlaceHolder').css('display', 'inline-block');
+            $('table[showOnClientSideEdit]').css('display', 'none');
+
+            $('table[originalvalue]').each(function () {//table.I1DropDownListFrame[originalvalue]'
+                var originalValue = $(this).attr('originalvalue');
+                if (originalValue == undefined || originalValue == '' || originalValue == '0')
+                    I1DropDownList_SelectItem(this, 0, false);
+                else
+                    I1DropDownList_SelectItemByText(this, originalValue, false);
+            });
+            $('.btnSave').addClass('ButtonGenericDisabled').attr("disabled", "disabled");
+        }
+
+    });
+
+    $(".ddlDisabled").click(function (event) {
+        event.stopPropagation();
+    });
+
+    $('.removeEmptyRows tr').each(function () {
+        var i = 0;
+        $(this).find('td').each(function () {
+            if ($.trim($(this).html()).length != 0 || $(this).hasClass('ddlButton')) {
+                i++;
+                return false;
+            }
+        });
+        if (i == 0)
+            $(this).remove();
+    });    
+    Fix.fixTabularGrid();
+    $('.resizeWindowToElement').each(function () { Pbs.resizeWindowToElement($(this)); });
+    $('.increaseWindowToElement').each(function () { Pbs.resizeWindowToElement($(this), true); });
+
+    var portfolioLogoLinkHref = $('.PortfolioLogoLink').attr('href');
+    if (portfolioLogoLinkHref && portfolioLogoLinkHref.endsWith('#'))
+        $('.PortfolioLogoLink').attr('href', '#');
+
+    $('body').on('change', '.fileGeneric', function (e) {
+        if (e.target.files.length == 0)
+            $('.lblFileText[for="' + $(this).attr('id') + '"]').html('');
+        else
+            $('.lblFileText[for="' + $(this).attr('id') + '"]').html(e.target.files[0].name);
+    });
+
+    $('[data-for]').each(function () {
+        var from = $(this).attr('data-for');
+        if (!from) return;
+        $(this).attr('for', encodeURIComponent($(from).attr('id')));
+    })
+
+    Pbs.runJsFixes(); 
+    Pbs.originalForm = $('form').serialize();
+
+    var bootstrapButton = $.fn.button.noConflict(); // return $.fn.button to previously assigned value
+    $.fn.bootstrapBtn = bootstrapButton;            // give $().bootstrapBtn the Bootstrap functionality
+
+    $("input:text").on("focusout", function () {
+        if (Pbs.hasDangerousCharacters($(this).val())) {
+            if (!$(this).hasClass("inputDangerousCharError")) {
+                $(this).addClass("inputDangerousCharError");
+            }
+        }
+        else {
+            if ($(this).hasClass("inputDangerousCharError")) {
+                $(this).removeClass("inputDangerousCharError");
+            }
+        }
+    });
+
+    $('[data-enableOnLoad]').removeAttr("disabled");
+
+    // PBS-20790
+    if (Pbs.pbsHelpLink)
+        $('[pbsHelpLink]').click(() => { window.open(Pbs.pbsHelpLink, '_blank'); });
+});
+
+
+
+
+function CopyToClipBoard(controlIdToCopy) {
+    var source = document.getElementById(controlIdToCopy);
+
+    if (source == null || source == undefined || source.textContent == '') {
+        alert('Control to copy : Cannot be empty.');
+        return;
+    }
+    var isInput = source.tagName == "INPUT" || source.tagName == "TEXTAREA";
+    var target;
+
+    if (isInput) {
+        target = source;
+    }
+    else {
+        var targetId = "_hiddenCopyText_";
+        target = document.getElementById(targetId);
+
+        if (!target) {
+            target = document.createElement("textarea");
+            target.style.position = "absolute";
+            target.style.left = "-999px";
+            target.style.top = "-999px";
+            target.id = targetId;
+            document.body.appendChild(target);
+        }
+    }
+
+    target.textContent = source.textContent.trim();
+
+    target.focus();
+    target.setSelectionRange(0, target.value.length);
+
+    var succeed;
+
+    try {
+        succeed = document.execCommand("copy");
+    }
+    catch (e) {
+        succeed = false;
+    }
+    return succeed;
+}
+//$(function () {
+//    $('.popupBox').draggable({ cursor: "move", containment: "parent" })
+//        .resizable({
+//            minwidth: 100,
+//            handles: "e,w"
+//        });
+//});
+function OpenBootstrapPopup(ctrlId) {
+    Fix.fixBootstrapModal($('#' + ctrlId), { show: true, backdrop: 'static' });
+}
+function CloseBootstrapPopup(ctrlId, doPostBack) {
+    $("#" + ctrlId).modal('hide');
+    //$("#" + ctrlId).removeClass('show').css('display','none').modal('hide');
+    //$('div.modal-backdrop:last').remove();
+    //$('body').removeClass("modal-open");
+
+    if (doPostBack)
+        document.forms[0].submit();
+}
+function olarkChat(id) {
+    // begin olark code
+    ; (function (o, l, a, r, k, y) {
+        if (o.olark) return;
+        r = "script";
+        y = l.createElement(r);
+        r = l.getElementsByTagName(r)[0];
+        y.async = 1;
+        y.src = "//" + a;
+        r.parentNode.insertBefore(y, r);
+
+        y = o.olark = function () {
+            k.s.push(arguments);
+            k.t.push(+new Date)
+        };
+        y.extend = function (i, j) {
+            y("extend", i, j)
+        };
+        y.identify = function (i) {
+            y("identify", k.i = i)
+        };
+        y.configure = function (i, j) {
+            y("configure", i, j);
+            k.c[i] = j
+        };
+        k = y._ = { s: [], t: [+new Date], c: {}, l: a };
+    })(window, document, "static.olark.com/jsclient/loader.js");
+    /* custom configuration goes here (www.olark.com/documentation) */
+    olark.identify(id);
+    // end olark code
+}
+
+function TextBox_Format_Stripping(input, separator) {
+    var output = Globalization_Parse_Number_2019bd70e4744f9794f0400875c70f24(input, Number.NaN).toString();
+    if (isNaN(output)) {
+        return input;
+    }
+    else {
+        output = output.replace(/\./, separator);
+        return output;
+    }
+}
+
+function htmlEncodeTextArea(value) {
+    return $('<textarea/>').text(value).html();
+}
+
+function htmlEncodeTextAreaFields() {
+    $('.js-html-field').each(function () {
+        var encodedValue = htmlEncodeTextArea($(this).val());
+        $(this).val(encodedValue.replaceAll('&amp;', '&'));
+    });
+}
+
+function anyInputHasDangerousCharacters() {
+    var result = false;
+    var text;
+    $("input:text, input:password").each(function () {
+        if (Pbs.hasDangerousCharacters($(this).val())) {
+            if (!result) {
+                text = $(this).val();
+                result = true;
+            }
+        }
+    });
+
+    if (result) {
+        Pbs.showDangerousCharactersAlert(text);
+        if (event && event.target && event.target.disabled) {
+            event.target.disabled = false;
+        }
+    }
+    return result;
+}
+
+Date.isLeapYear = function (year) {
+    return (((year % 4 === 0) && (year % 100 !== 0)) || (year % 400 === 0));
+};
+
+Date.getDaysInMonth = function (year, month) {
+    return [31, (Date.isLeapYear(year) ? 29 : 28), 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][month];
+};
+
+Date.prototype.isLeapYear = function () {
+    return Date.isLeapYear(this.getFullYear());
+};
+
+Date.prototype.getDaysInMonth = function () {
+    return Date.getDaysInMonth(this.getFullYear(), this.getMonth());
+};
+
+function addMonths(dt, value) {
+    var n = dt.getDate();
+    dt.setDate(1);
+    dt.setMonth(dt.getMonth() + value);
+    dt.setDate(Math.min(n, dt.getDaysInMonth()));
+    return dt;
+};
+
+window.onresize = function (event) { event.stopPropagation(); return true; }
+

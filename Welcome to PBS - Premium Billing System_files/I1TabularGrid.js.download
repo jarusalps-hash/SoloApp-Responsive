@@ -1,0 +1,184 @@
+function I1TabularGrid_Init(grid, pixelHeight, firstPageProc, priorPageProc, 
+	priorPagingIncrementProc, nextPageProc, nextPagingIncrementProc, lastPageProc)
+{
+	if (!grid.i1Initialized)
+	{
+		grid.i1Initialized = true;
+		var body = document.getElementById(grid.getAttribute('i1Body'));;
+		grid.i1Body = body;
+		grid.i1BodyContainerRow = document.getElementById(grid.getAttribute('i1BodyContainerRow'));
+		grid.i1BodyContainerCell = document.getElementById(grid.getAttribute('i1BodyContainerCell'));
+		grid.i1Scroller = document.getElementById(grid.getAttribute('i1ScrollerID'));
+		grid.i1VScrollLoc = document.getElementById(grid.getAttribute('i1VScrollLocID'));
+		grid.i1ExportButton = document.getElementById(grid.getAttribute('i1ExportButtonID'));
+		grid.i1FirstPageProc = firstPageProc;
+		grid.i1PriorPageProc = priorPageProc;
+		grid.i1PriorPagingIncrementProc = priorPagingIncrementProc;
+		grid.i1NextPagingIncrementProc = nextPagingIncrementProc;
+		grid.i1NextPageProc = nextPageProc;
+		grid.i1LastPageProc = lastPageProc;
+		if (grid.i1ExportButton != null)
+		{
+			grid.i1ExportButton.style.zIndex = Number.MAX_VALUE / 2 + 1; // Bit higher than the focus ring to keep it in front.
+		}
+		grid.i1ExportButtonHasShown = false;
+		grid.i1ExportButtonTimerId = null;
+		
+		// Scroll area resize.
+		var resizeScrollProc = function (event)
+		{
+			I1TabularGrid_SaveScrollocation(grid.i1Scroller, grid.i1VScrollLoc);
+			if (grid.i1FooterTable)
+			{
+				grid.i1FooterTable.style.left = -(grid.i1Scroller.scrollLeft) + 'px';
+			}
+			if (grid.i1HeaderTable)
+			{
+				grid.i1HeaderTable.style.left = -(grid.i1Scroller.scrollLeft) + 'px';
+			}
+		};
+		I1AddEventHandler(grid.i1Scroller, 'scroll', resizeScrollProc);
+		I1AddEventHandler(grid.i1Scroller, 'resize', resizeScrollProc);
+
+		// Export button related events.
+		var showExportButtonProc = function(event)
+		{
+			// Cancel previous timeout.
+			if (grid.i1ExportButtonTimerId != null)
+			{
+				window.clearTimeout(grid.i1ExportButtonTimerId);
+				grid.i1ExportButtonTimerId = null;
+			}
+			
+			// Display export button after 1 second.
+			grid.i1ExportButtonTimerId = window.setTimeout(function() {I1TabularGrid_ShowExportButton(grid);}, 1000);
+		};
+		I1AddEventHandler(grid, 'mouseover', showExportButtonProc);
+		
+		var scrollOnExportButtonProc = function(event)
+		{
+			I1TabularGrid_HideExportButton(grid, false);
+		};
+		I1AddEventHandler(grid.i1Scroller, 'scroll', scrollOnExportButtonProc);
+		
+		var mouseOutProc = function(event)
+		{
+			var gridX = I1Controls_GetElementLeft(grid);
+			var gridY = I1Controls_GetElementTop(grid);
+
+			if ((event.clientX == 0 && event.clientY == 0 && event.target.tagName.toLowerCase() == 'tr')
+			|| (event.clientX >= gridX && event.clientX <= (gridX + grid.offsetWidth)
+			&& event.clientY >= gridY && event.clientY <= (gridY + grid.offsetHeight)))
+			{
+				// Only leave hide export button when 
+				// the mouse has left the grid area.
+				
+				// We deliberately want to ignore events
+				// issued from TR's with a cursor position
+				// of 0x0 since these are artifically
+				// fired.
+				return;
+			}
+
+			I1TabularGrid_HideExportButton(grid, true);
+		};
+		I1AddEventHandler(grid, 'mouseout', mouseOutProc);
+		
+		var loadInit = function(e)
+		{
+			I1TabularGrid_RectifyHeight(grid, pixelHeight);
+			I1TabularGrid_RestoreScrollocation(grid.i1Scroller, grid.i1VScrollLoc, grid.i1HScrollLoc);		
+		};
+		
+		I1AddEventHandler(window, 'load', loadInit);
+	}
+}
+
+function I1TabularGrid_RestoreScrollocation(scroller, vLoc)
+{
+	if (scroller)
+	{
+		if (vLoc && vLoc.value != '')
+		{
+			scroller.scrollTop = parseInt(vLoc.value);
+		}
+	}
+}
+
+function I1TabularGrid_RectifyHeight(grid, pixelHeight)
+{
+	// Only in Mozilla: the height of the scrolling DIV 
+	// is not sustained if the containing TD element is not sized absolutely.
+	// Note that this only works right now when the height is set in pixel values.
+	// [Tony Chow 02/12/2004]
+	if (pixelHeight == null || I1IsMozilla() == false) return;
+	
+	var rectifySizingHandler = function(e)
+	{
+		var ctl = grid.getElementsByTagName('tbody')[0];
+		var controlHeight = pixelHeight;
+		var otherRowHeight = 0;
+		
+		for (var i = 0; i < ctl.childNodes.length; i++)
+		{
+			var node = ctl.childNodes[i];
+			if (node.tagName && node.tagName.toLowerCase() == 'tr' && node.id != grid.i1BodyContainerRow.id)
+			{
+				otherRowHeight += node.offsetHeight;
+			}
+		}
+		
+		grid.i1BodyContainerCell.style.height = (controlHeight - otherRowHeight).toString() + 'px';
+	};
+	
+	I1AddEventHandler(window, 'resize', rectifySizingHandler);
+	rectifySizingHandler(null);
+}
+
+function I1TabularGrid_SaveScrollocation(scroller, vLoc)
+{
+	if (scroller != null)
+	{
+		vLoc.value = scroller.scrollTop;
+	}
+}
+
+function I1TabularGrid_GetOffsetWidth(contentId, defaultValue)
+{
+	var obj = document.getElementById(contentId);
+	return obj == null ? defaultValue : obj.offsetWidth + "px";
+}
+
+function I1TabularGrid_ShowExportButton(grid)
+{
+	if (!grid.i1ExportButton) return;
+	grid.i1ExportButtonTimerId = null;	
+	if (grid.i1ExportButtonHasShown == true) return;
+	
+	//grid.i1ExportButton.style.display = 'block';
+
+	// Position at the lower right hand corner of the scroller.
+	//grid.i1ExportButton.style.top = (grid.i1Scroller.scrollTop).toString() + 'px';
+
+	//grid.i1Scroller.style.position = "relative";
+
+	grid.i1ExportButtonHasShown = true;
+}
+
+function I1TabularGrid_HideExportButton(grid, hasLeftGrid)
+{
+	if (!grid.i1ExportButton) return;
+	
+	if (grid.i1ExportButtonTimerId != null)
+	{	
+		window.clearTimeout(grid.i1ExportButtonTimerId);
+		grid.i1ExportButtonTimerId = null;	
+	}
+
+	//grid.i1ExportButton.style.display = 'none';
+	
+	if (hasLeftGrid == true)
+	{
+		grid.i1ExportButtonHasShown = false;
+	}
+}

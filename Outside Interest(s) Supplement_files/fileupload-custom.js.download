@@ -1,0 +1,207 @@
+﻿$('input[type="file"]').each(function () {
+	if ($(this).length !== 0) {
+		$(this).closest('.divFileUpload').find('file_error').html("");
+	}
+});
+
+$(document).ready(function () {
+	$('.divFileUpload.required').each(function () {
+		SetRequiredPropertyOnOff($(this).parent());
+	});
+});
+$(document).on("change", "input[type='file']", function () {
+	var $fileInput = $(this);
+	var $errorSpan = $(this).closest('.divFileUpload').find(".file_error");
+	var $divAttachments = $(this).closest('.divFileUpload').find(".divAttachments");
+	var files = $(this).get(0).files;
+	var maxFiles = $(this).closest('.divFileUpload').find(".hdnMaxFiles").val();
+	var existingAttachments = $(this).closest('.divFileUpload').find('.tblAttachments tbody a.lnkDownloadAttachment').length;
+	if (files.length <= 0) {
+		if (existingAttachments === 0) {
+			$errorSpan.html("Select at least one file to upload.");
+		}
+		return false;
+	}
+	else if (maxFiles > 0 && (files.length + existingAttachments) > maxFiles) {
+		$errorSpan.html("You can only upload a maximum of " + maxFiles + " files");
+		return false;
+	}
+	var fileData = new FormData();
+	for (var i = 0; i < files.length; i++) {
+		var file_size = files[i].size;
+		if (file_size > 5242880) {
+			$errorSpan.html("Max file size is 5 MB");
+			return false;
+		}
+		else if (files[i].name.length > 45) {
+			$errorSpan.html("Max file name is 45 characters");
+			return false;
+		}
+		else {
+			fileData.append("Attachments", files[i]);
+		}
+	}
+
+
+	$errorSpan.html("");
+
+	fileData.append("ApplicationPage", $(this).closest('.divFileUpload').find("input.hdnApplicationPage").val());
+	fileData.append("ApplicationPath", $(this).closest('.divFileUpload').find("input.hdnApplicationPath").val());
+	fileData.append("QuestionIdentification", $(this).closest('.divFileUpload').find("input.hdnQuestionIdentification").val());
+	fileData.append("ApplicationFirmId", $(this).closest('.divFileUpload').find("input.hdnApplicationFirmId").val());
+	fileData.append("ApplicationLawyerId", $(this).closest('.divFileUpload').find("input.hdnApplicationLawyerId").val());
+	fileData.append("FirmId", $(this).closest('.divFileUpload').find("input.hdnFirmId").val());
+	var attachmentId = 0;
+	if (!hasAttr($(this), 'multiple')) {
+		var rowCount = $(this).closest('.divFileUpload').find('.tblAttachments tbody a.lnkDownloadAttachment').length;
+		if (rowCount === 1) {
+			attachmentId = $(this).closest('.divFileUpload').find('.tblAttachments tbody tr').find('input[id^="hdnAttachmentId"]').val();
+		}
+	}
+	fileData.append("AttachmentId", attachmentId);
+	$divAttachments.show();
+
+	$.ajax({
+		type: "POST",
+		url: $(this).data('actionUrl'),
+		//dataType: "json",
+		contentType: false, // Not to set any content header
+		processData: false, // Not to process data
+		data: fileData,
+		async: true,
+		success: function (data) {
+			//$fileInput.val("");
+			if (hasAttr($fileInput, 'required')) {
+				if (!$fileInput.closest('.divFileUpload').hasClass('required')) {
+					$fileInput.closest('.divFileUpload').addClass('required');
+				}
+				//$fileInput.attr('required', false);
+			}
+			$divAttachments.html(data);
+		},
+		error: function (xhr, status, error) {
+			$fileInput.val("");
+			$divAttachments.html(xhr.responseText);
+		}
+	});
+});
+function hasAttr($element, attrName) {
+	var attr = $element.attr(attrName);
+	// For some browsers, `attr` is undefined; for others, `attr` is false. Check for both.
+	if (typeof attr !== typeof undefined && attr !== false) {
+		return true;
+	}
+	else {
+		return false;
+	}
+}
+$(document).on("click", ".lnkDeleteAttachment", function () {
+	$deleteLink = $(this);
+	var fileData = new FormData();
+	fileData.append("ApplicationPage", $(this).closest('.divFileUpload').find("input.hdnApplicationPage").val());
+	fileData.append("ApplicationPath", $(this).closest('.divFileUpload').find("input.hdnApplicationPath").val());
+	fileData.append("QuestionIdentification", $(this).closest('.divFileUpload').find("input.hdnQuestionIdentification").val());
+	fileData.append("ApplicationFirmId", $(this).closest('.divFileUpload').find("input.hdnApplicationFirmId").val());
+	fileData.append("ApplicationLawyerId", $(this).closest('.divFileUpload').find("input.hdnApplicationLawyerId").val());
+	fileData.append("FirmId", $(this).closest('.divFileUpload').find("input.hdnFirmId").val());
+	var TrackId = $("input#TrackId").val();
+	var totalFiles = $(this).closest('.divFileUpload').find('.tblAttachments a.lnkDownloadAttachment').length;
+	var isRequired = "";
+	if ($(this).closest('.divFileUpload').hasClass('required')) {
+		isRequired = "required";
+	}
+	$.ajax({
+		contenttype: 'application/json; charset=utf-8',
+		type: 'POST',
+		url: $(this).data('actionUrl') + '&totalFiles=' + totalFiles + '&isRequired=' + isRequired + '&TrackId=' + TrackId,
+		contentType: false, // Not to set any content header
+		processData: false, // Not to process data
+		data: fileData,
+		async: true,
+		success: function (data) {
+			var $divFileUpload = $deleteLink.closest('.divFileUpload');
+			$divFileUpload.find("input[type='file']").val("");
+			$deleteLink.closest('.divAttachments').html(data);
+			if ($divFileUpload.hasClass('required')) {
+				if ($divFileUpload.find('#tblAttachments a.lnkDownloadAttachment').length === 0) {
+					$divFileUpload.find("input[type='file']").attr('required', true);
+					if (!$divFileUpload.hasClass('required')) {
+						$divFileUpload.addClass('required');
+					}
+				}
+			}
+		},
+		error: function (xhr, status, error) {
+			var $divFileUpload = $deleteLink.closest('.divFileUpload');
+			$divFileUpload.find("input[type='file']").val("");
+			$deleteLink.closest('.divAttachments').html(xhr.responseText);
+		}
+	});
+});
+$(".divFileUpload.required:visible").each(function () {
+	if ($(this).length) {
+		if ($(this).is(":visible")) {
+			if ($(this).find('#tblAttachments a.lnkDownloadAttachment').length > 0) {
+				$(this).find("input[type='file']").attr('required', false);
+			}
+		}
+	}
+});
+$(document).on("click", ".lnkDownloadAttachment", function () {
+	var fileName = $(this).closest('tr').find("input[id^='hdnFileName']").val();
+	var sampleArr = base64ToArrayBuffer($(this).closest('tr').find("input[id^='hdnFileAttachment']").val());
+	saveByteArray(fileName, sampleArr);
+});
+
+function base64ToArrayBuffer(base64) {
+	var binaryString = window.atob(base64);
+	var binaryLen = binaryString.length;
+	var bytes = new Uint8Array(binaryLen);
+	for (var i = 0; i < binaryLen; i++) {
+		var ascii = binaryString.charCodeAt(i);
+		bytes[i] = ascii;
+	}
+	return bytes;
+}
+
+function saveByteArray(reportName, byte) {
+	var blob = new Blob([byte], { type: "application/pdf" });
+	var link = document.createElement('a');
+	link.href = window.URL.createObjectURL(blob);
+	var fileName = reportName;
+	link.download = fileName;
+	link.click();
+}
+
+function ValidateFileUpload() {
+	var result = 1;
+	$('.file_error').html("");
+	$(".divFileUpload.required").each(function () {
+		if ($(this).length) {
+			if ($(this).is(":visible")) {
+				if ($(this).find('.tblAttachments a.lnkDownloadAttachment').length === 0) {
+					var $spanError = $(this).find('.file_error');
+					$spanError.html("Select at least one file to upload.");
+					$(window).scrollTop($spanError.offset().top - 200);
+					result = 0;
+				}
+			}
+		}
+	});
+	return result;
+}
+
+function SetRequiredPropertyOnOff($fileUploadParentDiv) {
+	var rowCount = $fileUploadParentDiv.find('.divAttachments .tblAttachments a.lnkDownloadAttachment').length;
+	if (rowCount > 0) {
+		$fileUploadParentDiv.find('input[type="file"]').attr('required', false);
+	}
+	else {
+		$fileUploadParentDiv.find('input[type="file"]').attr('required', true);
+	}
+	if ($fileUploadParentDiv.is(":visible")) {
+		if (!$fileUploadParentDiv.find(".divFileUpload").hasClass('required')) {
+			$fileUploadParentDiv.find(".divFileUpload").addClass('required');
+		}
+	}
+}

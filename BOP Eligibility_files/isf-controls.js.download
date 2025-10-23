@@ -1,0 +1,172 @@
+﻿$.widget("isf.isfTableControl", {
+    _create: function () {
+        var elem = this.element;
+        var self = this;
+        elem.find('button[data-action-type=addrow]').on('click', function () {
+            self.cloneRow();
+        });
+        elem.find('table[data-control-type=table]>tbody>tr').each(function (index, item) {
+            self.wireDeleteEvent(item);
+        });
+        this.loadData();
+    },
+    loadData: function () {
+        var elem = this.element;
+        var json = elem.find('[data-control-type=table-data]').text();
+        if (!json.trim()) {
+            return;
+        }
+        var items = JSON.parse(json);
+        if (items) {
+            for (var i = 0; i < items.length; i++) {
+                var item = items[i];
+                this.cloneRow(item);
+            }
+        }
+    },
+    cloneRow: function (item) {
+        var elem = this.element;
+        var templateRow = elem.find('table[data-control-type=tablerowtemplate]>tbody>tr:first');
+        var rowClone = templateRow.clone();
+        this.wireDeleteEvent(rowClone);
+        var body = elem.find('table[data-control-type=table]>tbody');
+        var rowCount = elem.find('table[data-control-type=table]>tbody>tr').length;
+        
+
+
+        this.setNameAttribute(rowClone);
+        this.setIndexOnNameProperty(rowClone, rowCount);
+        this.setIndexOnIdProperty(rowClone, rowCount);
+        if (item) {
+            this.bindProperties(rowClone, item);
+        }
+        body.append(rowClone);
+        $(rowClone).find('.inlineDate').datepicker({
+            autoclose: true,
+            orientation: "bottom",
+            dateFormat: 'mm/dd/yyyy',
+            showOnFocus: "False",
+            assumeNearbyYear: true
+        });
+        $(rowClone).find('.inlineDateValue').inputmask("mm/dd/yyyy", { "placeholder": "mm/dd/yyyy", "yearrange": { minyear: 1200, maxyear: 9999 } });
+    },
+    setNameAttribute: function (rowClone) {
+        $(rowClone).find('[data-tmpl-field-name]').each(function (index, elem) {
+            var nameVal = $(elem).attr('data-tmpl-field-name');
+            $(elem).attr('name', nameVal);
+        });
+    },
+    bindProperties: function (rowClone, item) {
+        $(rowClone).find('[name]').each(function (index, elem) {
+            var nameValue = $(elem).attr("name");
+            var propName = PathUtils.getLastPropertyPath(nameValue);
+            var propValue = item[propName];
+            if ($(elem).is(':radio')) {
+                $(elem).closest(".radio-wraper input[value=" + propValue + "]").prop('checked', true);
+            }
+            else if ($(elem).hasClass('datepicker')) {
+                if (propValue != null && propValue !='0001-01-01T00:00:00') {
+                    $(elem).datepicker({
+                        autoclose: true,
+                        orientation: "bottom",
+                        dateFormat: 'mm/dd/yyyy',
+                        showOnFocus: "False",
+                        assumeNearbyYear: true
+                    });
+                    $(elem).datepicker('setDate', new Date(propValue));
+                }
+            }
+            else {
+                $(elem).val(propValue);
+            }
+        });
+    },
+    setIndexOnNameProperty: function (row, rowIndex) {
+        $(row).find('[name]').each(function (index, elem) {
+            var nameValue = $(elem).attr("name");
+            $(elem).attr("name", PathUtils.setLastIndexOfPropertyPath(nameValue, rowIndex));
+        });
+    },
+    setIndexOnIdProperty: function (row, rowIndex) {
+        $(row).find('[id]').each(function (index, elem) {
+            var idValue = $(elem).attr("id");
+            $(elem).attr("id", idValue + "_" + rowIndex);
+        });
+        $(row).find('[for]').each(function (index, elem) {
+            var idValue = $(elem).attr("for");
+            $(elem).attr("for", idValue + "_" + rowIndex);
+        });
+    },
+    wireDeleteEvent: function (item) {
+        var deleteElement = $(item).find('[data-action-type=deleterow]');
+        var self = this;
+        deleteElement.on('click', self.deleteRow);
+    },
+    deleteRow: function (evt) {
+        var target = evt.target;
+        $(target).closest('td').attr('data-row-status', 'deleted');
+        $(target).closest('td').find("input[name$='RowStatus']").val("deleted");
+        $(target).closest('tr').attr('class', 'd-none');
+    }
+});
+
+var PathUtils = {
+    tokenizePath: function (path) {
+        var tokenStrings = path.split(".");
+        var tokens = [];
+        for (var i = 0; i < tokenStrings.length; i++) {
+            var tokenString = tokenStrings[i];
+            var propertyName = tokenString;
+            var indexName = -1;
+            var openSquareIndex = tokenString.indexOf("[");
+            var closeSquareIndex = tokenString.indexOf("]", openSquareIndex);
+            if (openSquareIndex != -1) {
+                propertyName = tokenString.substring(0, openSquareIndex);
+                indexName = tokenString.substring(openSquareIndex + 1, closeSquareIndex);
+            }
+            tokens.push({ type: "property", path: propertyName });
+            if (indexName !== -1)
+                tokens.push({ type: "index", path: indexName });
+        }
+        return tokens;
+    },
+    setLastIndexOfPropertyPath: function (path, index) {
+        var pathTokens = PathUtils.tokenizePath(path);
+        var instance = this.lastInstance(pathTokens, function (x) { return x.type === "index" });
+        instance.path = index;
+        return this.combinePathTokens(pathTokens);
+    },
+    getLastPropertyPath: function (path) {
+        var pathTokens = PathUtils.tokenizePath(path);
+        var instance = this.lastInstance(pathTokens, function (x) { return x.type === "property" });
+        return instance.path;
+    },
+    combinePathTokens: function (pathTokens) {
+        var path = "";
+        for (var i = 0; i < pathTokens.length; i++) {
+            var pathToken = pathTokens[i];
+            if (i > 0 && pathToken.type == "property") {
+                path += ".";
+            }
+            if (pathToken.type == "property") {
+                path += pathToken.path;
+            }
+            else if (pathToken.type == "index") {
+                path += "[" + pathToken.path + "]";
+            }
+            else {
+                throw new Exception();
+            }
+        }
+        return path;
+    },
+    lastInstance: function (arr, predicate) {
+        for (var i = arr.length - 1; i >= 0; i--) {
+            var result = predicate(arr[i]);
+            if (result === true) return arr[i];
+        }
+        return null;
+    }
+};
+
+

@@ -1,0 +1,41 @@
+﻿$(document).on("click", ".start-loading-on-download", function () {
+    $("#divLoading").fadeIn();  // show loading animation
+    startDownloadChecker(120);
+});
+
+var downloadTimer;  // reference to timer object
+
+function startDownloadChecker(timeout) {
+    var cookieName = "DownloadCompleteChecker";
+    var downloadTimerAttempts = timeout;    // seconds
+
+    setCookie(cookieName, 0, downloadTimerAttempts);
+
+    // set timer to check for cookie every second
+    downloadTimer = window.setInterval(function () {
+        var cookie = getCookie(cookieName);
+
+        // if cookie doesn't exist, or attempts have expired, re-enable form
+        if ((typeof cookie === 'undefined') || (downloadTimerAttempts == 0)) {
+            $("#divLoading").fadeOut();
+            window.clearInterval(downloadTimer);
+            expireCookie(cookieName);
+        }
+
+        downloadTimerAttempts--;
+    }, 1000);
+}
+
+function setCookie(name, value, expiresInSeconds) {
+    var exdate = new Date();
+    exdate.setTime(exdate.getTime() + expiresInSeconds * 1000);
+    var c_value = escape(value) + ((expiresInSeconds == null) ? "" : "; expires=" + exdate.toUTCString());
+    document.cookie = name + "=" + c_value + '; path=/';
+};
+function getCookie(name) {
+    var parts = document.cookie.split(name + "=");
+    if (parts.length == 2) return parts.pop().split(";").shift();
+}
+function expireCookie(name) {
+    document.cookie = encodeURIComponent(name) + "=; path=/; expires=" + new Date(0).toUTCString();
+}

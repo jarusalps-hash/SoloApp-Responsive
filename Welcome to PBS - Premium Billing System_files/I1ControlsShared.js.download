@@ -1,0 +1,415 @@
+// Requires JsHelper.js.
+
+// Call this function to turn custom HTML attributes into expando properties in Javascript
+// of the correct types.
+function I1Controls_InitField(element, fieldName, expectedType, defaultValue)
+{
+	var currentValue = element.getAttribute(fieldName);
+	var actualType = typeof(currentValue);
+	
+	if (actualType != expectedType)
+	{
+		if (expectedType == 'number' && actualType == 'string')
+		{
+			element[fieldName] = parseInt(currentValue);
+		}
+		else if (expectedType == 'boolean')
+		{
+			element[fieldName] = /^true$/i.test(currentValue);
+		}
+		else
+		{
+			element[fieldName] = I1Controls_EscapeQuotes(defaultValue.toString());
+		}
+	}
+	else if (actualType == 'string')
+	{
+		element[fieldName] = I1Controls_EscapeQuotes(currentValue.toString());
+	}
+	else
+	{
+		element[fieldName] = currentValue;
+	}
+}
+
+function I1Controls_EscapeQuotes(text)
+{
+	return text.replace(/'/i, '\\\'');
+}
+
+// Call this function to initialize the stylesheets of the popup window created using 
+// IE's window.createPopup() method.
+function I1Controls_CreatePopup(inheritCss)
+{
+    if (!window.createPopup) {
+        console.log('window.createPopup deprecated');
+        return;
+    }
+	var parentDocument = window.document;
+	var popup = window.createPopup();
+	var popupDocument = popup.document;
+	
+	if (inheritCss)
+	{
+		// Copy stylesheets using STYLE elements.  (These cannot be shared between popup and the main parentDocument.)
+		for (var i = 0; i < parentDocument.styleSheets.length; i++)
+		{
+			var sheet = parentDocument.styleSheets[i];
+			
+			if (sheet.href != '' && sheet.href != null)
+			{
+				// If this is a linked stylesheet.
+				var e = popupDocument.createElement('link');
+				e.type = 'text/css';
+				e.href = sheet.href;
+				popupDocument.documentElement.firstChild.appendChild(e);
+			}
+			else if (sheet.cssText != String.Empty && sheet.cssText != null)
+			{
+				// If this is an inline style sheet.
+				var e = popupDocument.createElement('style');
+				popupDocument.documentElement.firstChild.appendChild(e);
+				popupDocument.styleSheets[popupDocument.styleSheets.length - 1].cssText = sheet.cssText;
+			}
+		}
+		// Copy stylesheets using LINK elements. (These cannot be shared between popup and the main parentDocument.)
+		var linkList = parentDocument.getElementsByTagName('link');
+		for (var i = 0; i < linkList.length; i++)
+		{
+			var link = linkList[i];
+			if (link.type != null && link.type.toLowerCase() == 'text/css')
+			{
+				var e = popupDocument.createElement('link');
+				e.type = 'text/css';
+				e.rel = 'stylesheet';
+				e.href = link.href;
+				popupDocument.documentElement.firstChild.appendChild(e);
+			}
+		}
+	}
+	
+	return popup;
+}
+
+// Gets the top coordinate of an element relative to the client area of the browser window.
+function I1Controls_GetElementTop(element)
+{
+	var value = 0;
+	
+	if (/^(tr)$/i.test(element.tagName) == false)
+	{
+		value = element.offsetTop;
+	}
+	
+	if (element.offsetParent)
+	{
+		var parent = element.offsetParent;
+		
+		var borderTopWidth;
+		
+		if (I1IsMozilla() == true)
+		{
+			borderTopWidth = document.defaultView.getComputedStyle(parent, null).getPropertyValue('border-top-width');
+		}
+		else
+		{
+			borderTopWidth = parent.currentStyle.borderTopWidth;
+		}
+		
+		if (/^(\d+)px$/i.exec(borderTopWidth))
+		{
+			parentBorder = parseInt(RegExp.$1);
+		}
+
+		if (/^(\d+)px$/i.exec(borderTopWidth))
+		{
+			value += parseInt(RegExp.$1);
+		}
+	}
+	
+	if (element.offsetParent)
+	{
+		value += I1Controls_GetElementTop(element.offsetParent);
+	}
+	
+	return value;
+}
+
+var coordinateMap = '';
+
+// Gets the left coordinate of an element relative to the client area of the browser window.
+function I1Controls_GetElementLeft(element)
+{
+	var value = 0;
+	
+	if (/^(tr)$/i.test(element.tagName) == false)
+	{
+		value = element.offsetLeft;
+	}
+	
+	var parentBorder = 0;
+
+	if (element.offsetParent)
+	{
+		var parent = element.offsetParent;
+		
+		var borderLeftWidth;
+		
+		if (I1IsMozilla() == true)
+		{
+			borderLeftWidth = document.defaultView.getComputedStyle(parent, null).getPropertyValue('border-left-width');
+		}
+		else
+		{
+			borderLeftWidth = parent.currentStyle.borderLeftWidth;
+		}
+		
+		if (/^(\d+)px$/i.exec(borderLeftWidth))
+		{
+			parentBorder = parseInt(RegExp.$1);
+		}
+	}
+	
+	value += parentBorder;
+	
+	coordinateMap += element.tagName + ' id: ' + element.id + ' offset left: ' + value + 'parent border: ' + parentBorder + '\n';
+	
+	if (element.offsetParent)
+	{
+			value += I1Controls_GetElementLeft(element.offsetParent);
+	}
+
+	return value;
+}
+
+// Platform neutral way of attaching event handler to an object.
+// Works with both IE and Mozilla.
+function I1Controls_AttachEvent(element, eventName, method, useCapture)
+{
+	if (element.addEventListener)
+	{
+		element.addEventListener(eventName.replace(/^on/i, ''), method, useCapture);
+	}
+	else if (element.attachEvent)
+	{
+		element.attachEvent(eventName, method);
+	}
+}
+
+// Platform neutral way of deriving the bounding rectangle
+// of an element relative to either the client area of the window
+// or to the screen.
+function I1Controls_GetBoundingClientRect(element, clientLeft, clientTop)
+{
+	var rect = new Object();
+	if (element.getBoundingClientRect)
+	{
+		var ieRect = element.getBoundingClientRect();
+		rect.left = ieRect.left;
+		rect.top = ieRect.top;
+		rect.right = ieRect.right;
+		rect.bottom = ieRect.bottom;
+	}
+	else
+	{
+		rect.left = I1Controls_GetElementLeft(element);
+		rect.left -= window.scrollX;
+		rect.top = I1Controls_GetElementTop(element);
+		rect.top -= window.scrollY;
+		rect.right = rect.left + element.offsetWidth;
+		rect.bottom = rect.bottom + element.offsetHeight;
+	}
+	
+	if (clientLeft)
+	{
+		rect.left += clientLeft;
+		rect.right += clientLeft;
+	}
+	
+	if (clientTop)
+	{
+		rect.top += clientTop;
+		rect.bottom += clientTop;
+	}
+
+	return rect;
+}
+
+// Returns the left coordinate of the client area of the 
+// specified window.  Works with both IE and Mozilla.
+function I1Controls_GetWindowClientLeft(windowVal, event)
+{
+	if (windowVal.screenLeft)
+	{
+		return windowVal.screenLeft;
+	}
+	else
+	{
+		return windowVal.screenX + (event.screenX - event.clientX);
+	}
+}
+
+// Returns the top coordinate of the client area of the 
+// specified window.  Works with both IE and Mozilla.
+function I1Controls_GetWindowClientTop(windowVal, event)
+{
+	if (windowVal.screenTop)
+	{
+		return windowVal.screenTop;
+	}
+	else
+	{
+		return windowVal.screenY + (event.screenY - event.clientY);
+	}
+}
+
+// Determines whether an element is contained within another element.
+function I1Controls_IsElementChild(ancestorElement, childElement)
+{
+	if (ancestorElement.contains)
+	{
+		return I1ElementContainsElement(ancestorElement, childElement);
+	}
+	else
+	{
+		while (childElement && childElement != ancestorElement)
+		{
+			childElement = childElement.parentNode;
+		}
+		
+		return childElement == ancestorElement;
+	}
+}
+
+function I1Controls_GetFirstElementChildNode(parent)
+{
+	for (var i = 0; i < parent.childNodes.length; i++)
+	{
+		var node = parent.childNodes[i];
+		if (node.nodeType == 1)
+		{
+			return node;
+		}
+	}
+	
+	return null;
+}
+
+function I1Controls_GetI1LabelText(labelId, html)
+{
+	var label = document.getElementById(labelId);
+	
+	if (label != null)
+	{
+		var textElement = null;
+		
+		if (label.tagName.toLowerCase() == 'span')
+		{
+			textElement = label;
+		}
+		else // (label.tagName.toLowerCase() == 'table')
+		{
+			// Go from TR-TD-DIV
+			textElement = I1Controls_GetFirstElementChildNode(label.rows[0].cells[0]);
+		}
+		
+		var possibleNobr = I1Controls_GetFirstElementChildNode(textElement);
+		
+		var text;
+		
+		if (possibleNobr != null && possibleNobr.tagName.toLowerCase() == 'nobr')
+		{
+			text = possibleNobr.innerHTML;
+		}
+		else
+		{
+			text = textElement.innerHTML;
+		}
+		
+		if (html == true)
+		{
+			return text;
+		}
+		else
+		{
+			return I1HtmlToText(text);
+		}
+	}
+	else
+	{
+		return null;
+	}
+}
+
+function I1Controls_SetI1LabelText(labelId, text, html)
+{
+	var label = document.getElementById(labelId);
+	
+	if (label != null)
+	{
+		var textElement = null;
+		
+		if (label.tagName.toLowerCase() == 'span')
+		{
+			textElement = label;
+		}
+		else // (label.tagName.toLowerCase() == 'table')
+		{
+			// Go from TR-TD-DIV
+			textElement = I1Controls_GetFirstElementChildNode(label.rows[0].cells[0]);
+		}
+		
+		var possibleNobr = I1Controls_GetFirstElementChildNode(textElement);
+		
+		if (possibleNobr != null && possibleNobr.tagName.toLowerCase() == 'nobr')
+		{
+			textElement = possibleNobr;
+		}
+		
+		if (html == true)
+		{
+			textElement.innerHTML = text;
+		}
+		else
+		{
+			textElement.innerHTML = I1TextToHtml(text);
+		}
+	}
+}
+
+function I1Controls_ApplyStylesFromXml(element, xmlId)
+{
+	var xml = document.getElementById(xmlId);
+	
+	var cssClassNodes = xml.XmlDocument.getElementByTagName('cssClass');
+	
+	for (var i = 0; i < cssClassNodes.length; i++)
+	{
+		element.className = cssClassNodes[i].getAttribute('value');
+		break;
+	}
+
+	var attributeNodes = xml.XmlDocument.getElementByTagName('style');
+	
+	for (var i = 0; i < attributeNodes.length; i++)
+	{
+		var node = attributeNodes[i];
+		element.style.setAttribute(node.getAttribute('name'), node.getAttribute('value'));
+	}
+}
+
+function I1Controls_ScrollElementIntoView(scroller, element)
+{
+	var elementTop = element.offsetTop - scroller.scrollTop;
+	var elementBottom = elementTop + element.offsetHeight;
+	if (elementTop < 0)
+	{
+		element.scrollIntoView(true);	
+		window.status = 'Scrolling up.';
+	}
+	else if (elementBottom > scroller.offsetHeight)
+	{
+		element.scrollIntoView(false);	
+		window.status = 'Scrolling down.';
+	}
+}

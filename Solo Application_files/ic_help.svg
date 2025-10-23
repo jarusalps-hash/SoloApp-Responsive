@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="15px" height="18px" viewBox="0 0 15 18" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <!-- Generator: Sketch 53.2 (72643) - https://sketchapp.com -->
+    <title>ic_help</title>
+    <desc>Created with Sketch.</desc>
+    <g id="Page-1" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="02.1_Alps_web_firm-information" transform="translate(-567.000000, -739.000000)">
+            <g id="form" transform="translate(165.000000, 231.000000)">
+                <g id="ic_help" transform="translate(402.000000, 508.000000)">
+                    <circle id="Oval" fill="#269CA8" opacity="0.580543155" cx="7.5" cy="8.5" r="7.5"></circle>
+                    <text id="i" font-family="Roboto-Regular, Roboto" font-size="13" font-weight="normal" letter-spacing="0.7647059" fill="#FFFFFF">
+                        <tspan x="6.04025447" y="12">i</tspan>
+                    </text>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>

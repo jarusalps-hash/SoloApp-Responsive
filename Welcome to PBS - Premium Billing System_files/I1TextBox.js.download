@@ -1,0 +1,65 @@
+// Used by I1TextBox.GetClientSideGetValueScript().
+function I1TextBox_GetValue(id)
+{
+	var ctl = document.getElementById(id);
+	if (ctl == null) return '';
+	
+	if (typeof(ctl.value) != 'undefined')
+	{
+		return ctl.value;
+	}
+	else
+	{
+		return ctl.getAttribute('i1value');
+	}
+}
+
+// Used by I1TextBox.GetClientSideSetValueExpression().
+function I1TextBox_SetValue(id, valueData, FireEventVar)
+{
+	var ctl = document.getElementById(id);
+	if (ctl == null) return;
+	if (typeof(ctl.value) == 'undefined') return;
+
+	var oldValue = ctl.value;
+	ctl.value = valueData;
+	
+	if (ctl.fireEvent && FireEventVar == true && oldValue != valueData)
+	{
+		ctl.fireEvent('onchange');
+	}
+}
+
+// Used bi I1TextBox to escape illegal characters before
+// postback.
+function I1TextBox_EscapeBeforePostback(id)
+{
+	var valueData = I1TextBox_GetValue(id);
+	valueData = valueData.replace(/\|/igm, '||');
+	valueData = valueData.replace(/</igm, '|x');
+	
+	I1TextBox_SetValue(id, valueData);
+}
+
+function I1CheckBox_SetValue(id, valueData, FireEventVar) {
+    var ctl = document.getElementById(id);
+    if (ctl == null) return;
+
+    var oldValue = ctl.checked;
+    ctl.checked = valueData;
+
+    if (ctl.fireEvent && FireEventVar == true && oldValue != valueData) {
+        ctl.fireEvent('onchange');
+    }
+}
+
+function Globalization_Postal_Code_Format_2951d2d2ae6141cfbe37280fcc38bbe1(value, regionCode, async, callback) {
+	var valueStr = (typeof (value) != 'undefined' && value != null) ? value : '';
+	var requestXml = '<postal><v>' + Globalization_Html_Encode_1fe4c770f6bd4e4f903f43bb6dedf9ed(valueStr) + '</v><r>' + Globalization_Html_Encode_1fe4c770f6bd4e4f903f43bb6dedf9ed(regionCode) + '</r></postal>';
+	if (async == true) {
+		XmlHttpHandler_Proc('YQ3+pU+y3yPJoCrgyfzQJF6Rp80=', requestXml, true, callback);
+	} else {
+		var returnDoc = XmlHttpHandler_Proc('YQ3+pU+y3yPJoCrgyfzQJF6Rp80=', requestXml, false, null);
+		callback(returnDoc);
+	}
+} //-->

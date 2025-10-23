@@ -1,0 +1,16 @@
+function I1Button_ToggleEnabled(control, enabled)
+{
+	if (enabled == true)
+	{
+		control.disabled = false;
+	}
+	else if (enabled == false)
+	{
+		control.disabled = true;
+	}
+}
+
+function I1Button_IsEnabled(control)
+{
+	return !control.disabled;
+}

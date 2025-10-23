@@ -1,0 +1,349 @@
+//PBS-11225
+if (typeof String.prototype.trim !== 'function') {
+    String.prototype.trim = function () {
+        return this.replace(/^\s+|\s+$/g, '');                    
+    }
+}
+
+function I1Lookup_Init(idVar)
+{
+	var control = document.getElementById(idVar);
+	
+	control.i1Name = document.getElementById(control.id + "_Name");
+	control.i1Description = document.getElementById(control.id + "_Description");
+	control.i1ToolTip = control.i1Description.title;
+	control.i1ID = document.getElementById(control.id + "_Hidden");
+	control.i1AddButton = document.getElementById(control.id + "_AddButton");
+	
+	control.focus = function () { I1Lookup_SetFocus(control.id, false); };
+}
+
+function I1Lookup_SetNameValue(idVar, valueVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl == null || ctl.i1Name == null) return;
+	ctl.i1Name.value = valueVar;
+}
+
+function I1Lookup_SetDescriptionValue(idVar, valueVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl == null || ctl.i1Description == null) return;
+	ctl.i1Description.value = valueVar;
+}
+
+function I1Lookup_SetValueIDValue(idVar, valueVar)
+{
+    var ctl = document.getElementById(idVar);
+	if (ctl == null || ctl.i1ID == null) return;
+	ctl.i1ID.value = valueVar;
+}
+
+function I1Lookup_SetFocus(idVar, focusOnAddButton)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl == null) return;
+	if (focusOnAddButton && ctl.i1AddButton != null)
+	{
+		ctl.i1AddButton.focus();
+	}
+	else if (ctl.i1Name != null)
+	{
+		ctl.i1Name.focus();
+	}
+}
+
+function I1Lookup_SetToolTipValue(idVar, valueVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl == null) return;
+	ctl.i1ToolTip = valueVar;
+	Pbs?.switchTooltipValue(idVar, valueVar);
+}
+
+function I1Lookup_DisableAddButton(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl != null && ctl.i1AddButton != null)
+	{
+		ctl.i1AddButton.disabled = true;
+	}
+}
+
+function I1Lookup_EnableAddButton(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl != null && ctl.i1AddButton != null)
+	{
+		ctl.i1AddButton.disabled = false;
+	}
+}
+
+function I1Lookup_ClickAddButton(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl != null && ctl.i1AddButton != null)
+	{
+		ctl.i1AddButton.click();
+	}
+}
+
+function I1Lookup_GetNameValue(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl == null || ctl.i1Name == null || typeof(ctl.i1Name.value) == 'undefined') return '';
+	return escapeHTML(ctl.i1Name.value);
+}
+
+function I1Lookup_GetValueIDValue(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl == null || ctl.i1ID == null || typeof(ctl.i1ID.value) == 'undefined') return -1;
+	return ctl.i1ID.value;
+}
+
+function I1Lookup_GetResultObject(doc, idVar)
+{
+	if (doc == null) return null;
+
+	var element = null;
+	var result = new Object;
+	result.HasMultipleItems = false;
+	result.HasNoItems = false;
+	result.CustomCallback = '';
+	result.DisableCallback = false;
+	result.NameValue = '';
+	result.IDValue = -1;
+	result.DescriptionValue = '';
+	result.ToolTipValue = '';
+	result.SearchString = '';
+	result.IsSearchResult = true;
+	result.HasChanged = false;
+	
+	if (doc.getElementsByTagName('name').length == 1)
+	{
+		element = doc.getElementsByTagName('name')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var name = element.firstChild.nodeValue;
+			if (name == 'I1Lookup_MultipleItems')
+			{
+				result.HasMultipleItems = true;
+			}
+			else if (name == 'I1Lookup_NoItems')
+			{
+				result.HasNoItems = true;
+			}
+			else
+			{
+				result.NameValue = name;
+			}
+		}
+	}
+	
+	
+	if (doc.getElementsByTagName('id').length == 1)
+	{
+		element = doc.getElementsByTagName('id')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var valueId = element.firstChild.nodeValue;
+			result.IDValue = valueId;			
+		}	
+	}
+	
+	if (doc.getElementsByTagName('desc').length == 1)
+	{
+		element = doc.getElementsByTagName('desc')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var desc = element.firstChild.nodeValue;
+			result.DescriptionValue = desc;
+		}
+	}
+
+	if (doc.getElementsByTagName('title').length == 1)
+	{
+		element = doc.getElementsByTagName('title')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var titleVar = element.firstChild.nodeValue;
+			result.ToolTipValue = titleVar;
+		}
+	}
+	
+	if (doc.getElementsByTagName('disablecallback').length == 1)
+	{
+		element = doc.getElementsByTagName('disablecallback')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var disableCallback = element.firstChild.nodeValue;	
+			result.DisableCallback = disableCallback == 'true';
+		}
+	}
+	
+	if (doc.getElementsByTagName('callbackfunction').length == 1)
+	{
+		element = doc.getElementsByTagName('callbackfunction')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var callback = element.firstChild.nodeValue;	
+			result.Callback = callback;
+		}
+	}
+	
+	if (doc.getElementsByTagName('customcallbackname').length == 1)
+	{
+		element = doc.getElementsByTagName('customcallbackname')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+			var customCallback = element.firstChild.nodeValue;	
+			result.CustomCallback = customCallback;
+		}
+	}
+		
+	if (doc.getElementsByTagName('searchstr').length == 1)
+	{
+		element = doc.getElementsByTagName('searchstr')[0];
+		if (element != null && element.firstChild != null && element.firstChild.nodeValue != null)
+		{
+		    var searchStr = element.firstChild.nodeValue;
+		    if (searchStr != '' && searchStr.trim() != '')
+		        result.SearchString = searchStr;		    
+		}	
+	}
+	
+	/* This was a find result, not a search */
+	if (result.SearchString == '' && result.IDValue > -1)
+	{
+		result.IsSearchResult = false;
+	}
+	if (result.IDValue != I1Lookup_GetValueIDValue(idVar))
+	{
+		result.HasChanged = true;
+	}
+	
+	return result;
+}
+
+/* Returns true if the value has changed */
+function I1Lookup_Callback(idVar, result, focusId)
+{
+	var oldValue = I1Lookup_GetValueIDValue(idVar);
+
+	if (result == null)
+	{	    
+		I1Lookup_SetDescriptionValue(idVar, 'Item not found.');
+		I1Lookup_SetNameValue(idVar, '');
+		I1Lookup_SetValueIDValue(idVar, -1);
+		I1Lookup_SetToolTipValue(idVar, '');
+		I1Lookup_DisableAddButton(idVar);
+		I1Lookup_SetFocus(idVar, false);
+	}
+	else
+	{	    
+		I1Lookup_SetNameValue(idVar, result.NameValue);
+		I1Lookup_SetValueIDValue(idVar, result.IDValue);		
+		I1Lookup_SetDescriptionValue(idVar, result.DescriptionValue);		
+		I1Lookup_SetToolTipValue(idVar, result.ToolTipValue);
+		
+		if (result.HasMultipleItems == false && result.HasNoItems == false)
+		{		    
+			I1Lookup_EnableAddButton(idVar);
+			if (result.IsSearchResult == false)
+			{
+				I1Lookup_ClickAddButton(idVar);
+				
+				// focus on the next tabindex
+				
+				if(focusId != '')
+				{
+					document.getElementById(focusId).focus();
+				}
+				else
+				{
+					document.getElementById(idVar).focus();
+				}
+			}
+		}
+		else if (result.HasNoItems || result.HasMultipleItems)
+		{
+			I1Lookup_SetFocus(idVar, true);
+		}
+		
+
+	}
+	
+	var newValue = I1Lookup_GetValueIDValue(idVar);
+	
+	return (oldValue != newValue);
+}
+
+function I1Lookup_ShowShortcutPopup(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl != null && ctl.i1Name != null && !!window.createPopup)
+	{
+		ctl.i1ShortcutPopup = window.createPopup();
+		var popupBody = ctl.i1ShortcutPopup.document.body;
+		popupBody.style.backgroundColor = 'lightyellow';
+		popupBody.style.fontSize = '10px';
+		popupBody.style.padding = '4px';
+		popupBody.style.paddingTop = '2px';
+		popupBody.style.paddingBottom = '2px';
+		popupBody.style.fontFamily = 'Verdana, Tahoma';
+		popupBody.style.border = 'solid 1px black';
+		popupBody.onclick = function() { ctl.i1ShortcutPopup.hide(); };
+		popupBody.innerText = 'Press Alt+F3 to search.';
+		ctl.i1ShortcutPopup.show(0, ctl.i1Name.offsetHeight + 2, 150, 20, ctl.i1Name);
+	}
+}
+
+function I1Lookup_HideShortcutPopup(idVar)
+{
+	var ctl = document.getElementById(idVar);
+	if (ctl != null && ctl.i1ShortcutPopup != null && I1IsIE() == true)
+	{
+		ctl.i1ShortcutPopup.hide();
+		ctl.i1ShortcutPopup = null;
+	}
+}
+
+function I1Lookup_GetFindXml(valueId, lookupTypeId, handlerName, transientKey, containsTransient, disableCallback, customCallbackName)
+{
+	if (containsTransient)
+	{
+		return '<root><key>' + transientKey + '</key><handlertype>'
+			+ handlerName + '</handlertype><lookuptype>' + lookupTypeId
+			+ '</lookuptype><disablecallback>'
+			+ disableCallback + '</disablecallback>'
+			+ '<customcallbackname>' + customCallbackName
+			+ '</customcallbackname></root>';
+	}
+	else
+	{
+		return '<root><id>' + valueId + '</id><handlertype>'
+			+ handlerName + '</handlertype><lookuptype>' + lookupTypeId
+			+ '</lookuptype><disablecallback>'
+			+ disableCallback + '</disablecallback>'
+			+ '<customcallbackname>' + customCallbackName
+			+ '</customcallbackname></root>';
+    }
+}
+
+function I1Lookup_GetLookupXml(idVar, handlerType, lookupType, filteredIdString, miscParams, customCallbackName)
+{
+	return '<root><name>' + I1Lookup_GetNameValue(idVar)
+		+ '</name><handlertype>' + handlerType + '</handlertype><lookuptype>'
+		+ lookupType + '</lookuptype><filter>' + filteredIdString +
+		'</filter><miscparams>' + miscParams + '</miscparams><customcallbackname>' + customCallbackName
+        + '</customcallbackname><disablecallback>false</disablecallback><preferredLanguage>' + window.preferredLanguage + '</preferredLanguage></root>';
+}
+
+function escapeHTML (str)
+{
+   var div = document.createElement('div');
+   var text = document.createTextNode(str);
+   div.appendChild(text);
+   return div.innerHTML;
+}

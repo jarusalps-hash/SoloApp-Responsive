@@ -1,0 +1,222 @@
+(function($){
+	
+    $.confirm = function (params) {
+
+	    if($('#confirmOverlay').length){
+			return false;
+		}
+		
+	   var buttonHTML = '';
+        $.each(params.buttons, function (key, obj) {
+            var name = obj['name'];
+
+            buttonHTML += '<a href="#" class="mr-3 ButtonGeneric '+ obj['class']+'" role="button" aria-pressed="true">' + name + '<span></span></a>';
+			
+			if(!obj.action){
+				obj.action = function(){};
+			}
+        });
+
+        var titleHTML = '';
+        if (params.titleClass)
+            titleHTML += '<h1 class="' + params.titleClass + '">' + params.title + '</h1>';
+        else
+            titleHTML += '<h1>' + params.title + '</h1>';
+
+        var messageHTML = '';
+        if (params.messageClass)
+            messageHTML += '<p class="' + params.messageClass + '">' + params.message + '</p>';
+        else
+            messageHTML += '<p>' + params.message + '</p>';
+		
+        var confirmBoxHTML = '';
+        if (params.confirmBoxClass)
+            confirmBoxHTML += '<div id="confirmBox" class="' + params.confirmBoxClass + '">';
+        else
+            confirmBoxHTML += '<div id="confirmBox">';
+
+        var markup = [
+			'<div id="confirmOverlay">',
+			confirmBoxHTML,
+			titleHTML,
+			messageHTML,
+			'<div id="confirmButtons">',
+			buttonHTML,
+			'</div></div></div>'
+		].join('');	   
+		
+		$(markup).hide().appendTo('body').fadeIn();
+		
+		var buttons = $('#confirmBox .button'),
+			i = 0;
+
+		$.each(params.buttons, function (name, obj) {
+            buttons.eq(i++).click(function(){	
+				obj.action();
+				$.confirm.hide();
+				return false;
+			});
+		});
+    }
+
+    $.confirm.hide = function () {
+        $('#confirmOverlay').fadeOut(function () {
+            $(this).remove();
+        });
+    }
+
+	$.confirmComplex = function (params) {
+	    if ($('#confirmOverlay').length) {
+	        return false;
+	    }
+
+	    var markup = [
+			'<div id="confirmOverlay">',
+			params.html,
+			'</div>'
+	    ].join('');
+
+	    $.each(params.buttons, function (key, obj) {
+	        if (!obj.action) {
+	            obj.action = function () { };
+	        }
+	    });
+	   
+	    $(markup).hide().appendTo('body').fadeIn();
+
+	    var buttons = $('#confirmBox .button'),
+			i = 0;
+
+	    $.each(params.buttons, function (name, obj) {
+	        buttons.eq(i++).click(function () {
+	            //collect all inputs in confirmBox                
+	            obj.action(JSON.stringify($('#confirmOverlay input').serializeArray()));
+	            return false;
+	        });
+	    });
+	}
+
+    $.confirmPBSafe = function (params) {
+        if ($('#confirmOverlay').length) {
+            return false;
+        }
+
+        var buttonHTML = '';
+        $.each(params.buttons, function (key, obj) {
+            var name = obj['name'];
+            if (name == null || name == '') {
+                return true;
+            }
+            var action = obj['action'];
+            if (action == undefined || action == '')
+                action = 'javascript:$.confirm.hide();';
+            else
+                action = 'javascript:' + action + '; $.confirm.hide();';
+
+            buttonHTML += '<a href="' + action.replace(/"/g, '\'') + '" class="mr-3 ButtonGeneric ' + obj['class'] + '" role="button" aria-pressed="true">' + name + '<span></span></a>';
+        });
+
+        var titleHTML = '';
+        if (params.title != '') {
+            if (params.titleClass)
+                titleHTML += '<h1 class="' + params.titleClass + '">' + params.title + '</h1>';
+            else
+                titleHTML += '<h1>' + params.title + '</h1>';
+        }
+
+        var closeBtnHTML = '';
+        if (params.includeXbtn)
+        {
+            var closeAction = params.xBtnAction;
+            if (closeAction == undefined || closeAction == '')
+                closeAction = 'javascript:$.confirm.hide();';
+            else
+                closeAction = 'javascript:' + closeAction + '; $.confirm.hide();';
+            closeBtnHTML += '<a href="' + closeAction.replace(/"/g, '\'') + '" style="text-decoration: none; color:#000;"><div class="popupBox-close-confirm">x</div></a>';
+        }
+
+        var messageHTML = '';
+        if (params.messageClass)
+            messageHTML += '<p class="' + params.messageClass + '">' + params.message + '</p>';
+        else
+            messageHTML += '<p>' + params.message + '</p>';
+
+        var confirmBoxHTML = '';
+        if (params.confirmBoxClass)
+            confirmBoxHTML += '<div id="confirmBox" class="' + params.confirmBoxClass + '">';
+        else
+            confirmBoxHTML += '<div id="confirmBox">';
+
+        var markup = [
+            '<div id="confirmOverlay">',
+            confirmBoxHTML,
+            titleHTML,
+            closeBtnHTML,
+            messageHTML,
+            '<div id="confirmButtons">',
+            buttonHTML,
+            '</div></div></div>'
+        ].join('');
+        $(markup).hide().appendTo('body').fadeIn();
+    }
+	
+})(jQuery);
+
+
+function ConfirmDialog(title, message, confirmText, cancelText, confirmAction, cancelAction, titleClass, messageClass, confirmClass, confirmBoxClass, cancelClass) {
+
+    $.confirm({
+        'title': title,
+        'titleClass': titleClass,
+        'message': message,
+        'messageClass': messageClass,
+        'confirmBoxClass': confirmBoxClass,
+        "buttons":
+        {
+            'confirm': {
+                'name': confirmText,
+                'class': confirmClass || '',
+                'action': confirmAction
+            },
+            'cancel': {
+                'name': cancelText,
+                'class': cancelClass || 'btn-secondary',
+                'action': cancelAction
+            }
+        }
+    });
+    $('#confirmBox').draggable({ cursor: "move", containment: "parent" })
+        .resizable({
+            minwidth: 100,
+            //maxHeight: parseInt($("#confirmOverlay").height(), 10),
+            //handles: "n,e,s,w"
+            handles: "e,w"
+        });
+}
+
+function ConfirmComplexDialog(elemToCopy, confirmAction, cancelAction) {
+    var html = $(elemToCopy).html();
+    $(elemToCopy).remove();
+    $.confirmComplex({
+        'html': html,
+        "buttons":
+        {
+            'confirm': {                
+                'action': confirmAction
+            },
+            'cancel': {
+                'action': cancelAction
+            }
+        }
+    });
+    $('#confirmBox').draggable({ cursor: "move", containment: "parent" })
+     .resizable({
+         minwidth: 100,
+         //maxHeight: parseInt($("#confirmOverlay").height(), 10),
+         //handles: "n,e,s,w"
+         handles: "e,w"
+     });
+}
+
+
+

@@ -1,0 +1,6 @@
+var i1LastKeyTrackControl = null;
+var i1KeyTrackTime = null;
+var i1KeyTrackIndex = -1;
+var i1KeyTrackString = '';
+var i1LastDropDownList = null;
+var i1CurrentDatePickerControl = null;

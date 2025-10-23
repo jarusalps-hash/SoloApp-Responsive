@@ -1,0 +1,1352 @@
+$(document).ready(function () {/*close calendar on any click outside calendar and calendar icon (img 'src'  covers icons in calendar,  'unselected' attribute covers td and buttons in calendar */
+    if (document.addEventListener) 
+        document.body.addEventListener("click", function (event) {
+            if (i1CurrentDatePickerControl != null && !event.target.src && !event.target.getAttribute('unselectable'))
+                I1DatePicker_HidePopup(i1CurrentDatePickerControl);
+        });
+    else if (document.attachEvent)
+        document.body.attachEvent("click", function (event) {
+            if (i1CurrentDatePickerControl != null && !event.target.src && !event.target.getAttribute('unselectable'))
+                I1DatePicker_HidePopup(i1CurrentDatePickerControl);
+        }); 
+
+});
+
+/* I1DatePicker_Init */
+/* formatDateProc takes a date or a date string as the only parameter,
+	and returns a two-element array as the output.  The first element is the
+	formatted date string, the second the invariant string of the same date. If the
+	input cannot be parsed, a null value is returned. */
+function I1DatePicker_Init(control, formatDateProc, onChangeHandler)
+{  
+	// Initialize all variables.
+	I1Controls_InitField(control, 'i1TextBoxCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1TextBoxInvalidCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1TableCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1HeaderRowCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1HeaderCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1HeaderCellHoverCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1DateRowCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1DateCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1SelectedDateCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1OtherMonthDateCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1WeekdayRowCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1WeekdayCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1TextBoxCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1TextBoxInvalidCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1TableCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1HeaderRowCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1HeaderCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1HeaderCellHoverCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1DateRowCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1DateCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1SelectedDateCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1OtherMonthDateCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1WeekdayRowCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1WeekdayCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1PrevImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1PrevPressedImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1NextImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1NextPressedImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1PopupWidth', 'number', 200);
+	I1Controls_InitField(control, 'i1PopupVerticalOffset', 'number', -1);
+	
+	I1Controls_InitField(control, 'i1TodayFormatted', 'string', '');
+	I1Controls_InitField(control, 'i1Today', 'string', '');
+	control.i1Today = control.i1Today != '' ? new Date(Date.parse(control.i1Today)) : null;
+
+	I1Controls_InitField(control, 'i1Date', 'string', '');
+	control.i1Date = new Date(Date.parse(control.i1Date));
+	
+	I1Controls_InitField(control, 'i1OldDate', 'string', '');
+	control.i1OldDate = new Date(Date.parse(control.i1Date));
+
+	I1Controls_InitField(control, 'i1MonthPickerFrameCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerFrameCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerButtonCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerButtonCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerSelectedCellCssClass', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerSelectedCellCssAttributes', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerPrevImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerPrevPressedImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerNextImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerNextPressedImageUrl', 'string', '');
+	I1Controls_InitField(control, 'i1MonthPickerWidth', 'number', 130);
+	I1Controls_InitField(control, 'i1ShortDatePattern', 'string', 'MM/dd/yyyy');
+
+    //uncomment if white thin line appears between 'month , year' and 'days of week' lines
+	//if (I1IsIE11()) {
+	//    var dpHeaderRow = document.getElementsByClassName('I1DatePicker_HeaderRow');
+	//    for (var i = 0; i < dpHeaderRow.length; i++) {
+	//        dpHeaderRow[i].style["border-bottom"] = "solid black 1px";
+	//    }
+	//}
+
+	// Procs
+	control.i1FormatDateProc = formatDateProc;
+	control.i1OnChangeHandler = onChangeHandler;
+
+	var onchangeProc = function(e)
+	{
+		if (control.value.replace(/(^\s+|\s+$)/, '') != '')
+		{
+			// Not empty, parse.
+			var parseResult = control.i1FormatDateProc(I1DatePicker_ResolveShortHand(control));
+			if (parseResult != null)
+			{
+				I1DatePicker_SetFormattedDate(control, parseResult[0], parseResult[1]);
+				I1DatePicker_SetElementCss(control, control.i1TextBoxCssClass, 
+					control.i1TextBoxCssAttributes);
+			}
+			else
+			{
+				I1DatePicker_SetElementCss(control, control.i1TextBoxInvalidCssClass, 
+					control.i1TextBoxInvalidCssAttributes);
+			}
+		}
+		else
+		{
+			//var diff = control.i1Date - control.i1OldDate;
+			var diff = control.i1Date.getDate();
+			control.i1OldDate = new Date(Date.parse(control.i1Date));
+		    
+			if (control.i1OnChangeHandler != null)
+			{
+				control.i1OnChangeHandler(diff);
+			}
+		}
+	};
+	
+	I1AddEventHandler(control, 'change', onchangeProc);
+}
+
+// Turns a series of continuous digits into
+// a minimally formatted date string.
+function I1DatePicker_ResolveShortHand(control)
+{
+	var pattern = null;
+	var replacementPattern = null;
+	
+	if (/^([^mdy]*)m+([^mdy]*)d+([^mdy]*)y+([^mdy]*)$/i.exec(control.i1ShortDatePattern))
+	{
+		// MDY
+		pattern = /^\s*(\d{2})(\d{2})(\d{4})\s*$/;
+		replacementPattern = RegExp.$1 + '$1' + RegExp.$2 + '$2' + RegExp.$3 + '$3' + RegExp.$4;
+	}
+	else if (/^([^mdy]*)d+([^mdy]*)m+([^mdy]*)y+([^mdy]*)$/i.exec(control.i1ShortDatePattern))
+	{
+		// DMY
+		pattern = /^\s*(\d{2})(\d{2})(\d{4})\s*$/;
+		replacementPattern = RegExp.$1 + '$1' + RegExp.$2 + '$2' + RegExp.$3 + '$3' + RegExp.$4;
+	}
+	else if (/^([^mdy]*)y+([^mdy]*)m+([^mdy]*)d+([^mdy]*)$/i.exec(control.i1ShortDatePattern))
+	{
+		// YMD
+		pattern = /^\s*(\d{4})(\d{2})(\d{2})\s*$/;
+		replacementPattern = RegExp.$1 + '$1' + RegExp.$2 + '$2' + RegExp.$3 + '$3' + RegExp.$4;
+	}
+	else if (/^([^mdy]*)y+([^mdy]*)d+([^mdy]*)m+([^mdy]*)$/i.exec(control.i1ShortDatePattern))
+	{
+		// YDM
+		pattern = /^\s*(\d{4})(\d{2})(\d{2})\s*$/;
+		replacementPattern = RegExp.$1 + '$1' + RegExp.$2 + '$2' + RegExp.$3 + '$3' + RegExp.$4;
+	}
+	else if (/^([^mdy]*)d+([^mdy]*)y+([^mdy]*)m+([^mdy]*)$/i.exec(control.i1ShortDatePattern))
+	{
+		// DYM
+		pattern = /^\s*(\d{2})(\d{4})(\d{2})\s*$/;
+		replacementPattern = RegExp.$1 + '$1' + RegExp.$2 + '$2' + RegExp.$3 + '$3' + RegExp.$4;
+	}
+	else if (/^([^mdy]*)m+([^mdy]*)y+([^mdy]*)d+([^mdy]*)$/i.exec(control.i1ShortDatePattern))
+	{
+		// MYD
+		pattern = /^\s*(\d{2})(\d{4})(\d{2})\s*$/;
+		replacementPattern = RegExp.$1 + '$1' + RegExp.$2 + '$2' + RegExp.$3 + '$3' + RegExp.$4;
+	}
+	
+	if (pattern != null)
+	{
+		return control.value.replace(pattern, replacementPattern);
+	}
+	else
+	{
+		return control.value;
+	}
+}
+
+/* I1DatePicker_InitPopup */
+function I1DatePicker_InitPopup(control)
+{
+	if (control.i1Popup) return;
+
+	control.i1Popup = I1DatePicker_CreatePopup(control);
+
+	I1DatePicker_PreparePopup(control);
+}
+
+// This method should only be called once!
+function I1DatePicker_CreatePopup(control)
+{
+	var popup = null;
+
+	// IE
+	if (!!window.createPopup) // I1Controls_CreatePopup is using ie<11 window.createPopup method
+	{
+		popup = I1Controls_CreatePopup(true);
+		popup.document.body.i1MasterControl = control;
+		popup.document.body.onunload = I1DatePicker_PopupHideHandler;
+	}
+	else
+	{
+		popup = document.createElement('div');
+		popup.style.display = 'none';
+		popup.style.zIndex = 200000;
+		popup.style.position = 'absolute';
+		popup.style.overflow = 'hidden'; // Accomodate however big the contents are.
+        popup.style.MozUserFocus = 'normal';
+        popup.className = "calendarPopUpOuterDiv";
+		document.body.appendChild(popup);
+		
+		// Make sure that focus never leaves the textbox.
+		var method = function(e)
+		{
+			e.stopPropagation();
+			e.cancelBubble = true;
+			control.focus();
+			control.select();
+			return false;
+		};
+		popup.addEventListener('focus', method, true);
+		
+		method = function(e)
+		{
+			if (e.target.id != control.id && I1DatePicker_IsPopupOpen(control)
+			&& !I1DatePicker_IsPopupChild(control, e.target))
+			{
+				I1DatePicker_HidePopup(control);
+			}
+		};
+		I1AddEventHandler(document, 'focus', method);
+	}
+    popup.id = control.id +  '_calendarPopUpOuterDiv';
+	return popup;
+}
+
+function I1DatePicker_GetPopupElementId(control, relativeId)
+{
+	return control.id + '_' + relativeId;
+}
+
+function I1DatePicker_GetPopupDocument(control)
+{
+	I1DatePicker_InitPopup(control);
+	
+	if (I1DatePicker_IsIEPopup(control.i1Popup))
+	{
+		return control.i1Popup.document;
+	}
+	else
+	{
+		return document;
+	}
+}
+
+function I1DatePicker_GetPopupRootElement(control)
+{
+	I1DatePicker_InitPopup(control);
+	
+	if (I1DatePicker_IsIEPopup(control.i1Popup))
+	{
+		return control.i1Popup.document.body;
+	}
+	else
+	{
+		return control.i1Popup;
+	}
+}
+
+function I1DatePicker_IsPopupChild(control, element)
+{
+	return I1Controls_IsElementChild(I1DatePicker_GetPopupRootElement(control), element);
+}
+
+function I1DatePicker_PreventDefaultKeyDown(control, event)
+{
+	I1PreventEventDefault(event);
+}
+
+function I1DatePicker_PermitDefaultKeyDown(control, event)
+{
+}
+
+function I1DatePicker_GetElementByRelativeId(control, relativeId)
+{
+	I1DatePicker_InitPopup(control);
+	
+	return I1DatePicker_GetPopupDocument(control).getElementById(I1DatePicker_GetPopupElementId(control, relativeId));
+}
+
+function I1DatePicker_SetUnselectable(element)
+{
+		element.setAttribute('UNSELECTABLE', 'on');
+		if (element.addEventListener)
+		{
+			var method = function(event)
+			{
+				event.preventDefault();
+			};
+			element.addEventListener('mousedown', method, false);
+		}
+}
+
+function I1DatePicker_PopupHideHandler()
+{
+	if (i1CurrentDatePickerControl == null) return;
+	
+	i1CurrentDatePickerControl = null;
+}
+
+function TD_Handler(event) {
+    var srcEl = event.srcElement ? event.srcElement : event.target;
+        I1DatePicker_ShowMonthPicker(srcEl.i1Control);
+	    if (event) {
+	        event.cancelBubble = true;
+	    }
+	    else {
+	        if (this.document.parentWindow.event)
+	            this.document.parentWindow.event.cancelBubble = true;
+	        else {
+	            if (window.event)
+	                window.event.cancelbubble = true;
+
+	        }
+
+	    }
+	};
+
+/* I1DatePicker_PreparePopup */
+function I1DatePicker_PreparePopup(control)
+{
+	var doc = I1DatePicker_GetPopupDocument(control);
+	var rootElement = I1DatePicker_GetPopupRootElement(control);
+	var table;
+	var tr;
+	var td;
+	var colGroup, col;
+	
+	// Master table element
+	table = doc.createElement('table');
+	table.id = I1DatePicker_GetPopupElementId(control, 'ctlCalendar');
+	table.style.zIndex = '1';
+	table.style.tableLayout = 'fixed';
+	table.style.borderCollapse = 'collapse';
+	table.style.width = '100%';
+	table.style.left = '0px';
+	table.style.top = '0px';
+	table.style.position = 'absolute';
+	table.border = 0;
+	table.cellSpacing = 0;
+	table.cellPadding = 0;
+	I1DatePicker_SetElementCss(table, control.i1TableCssClass, control.i1TableCssAttributes);
+	table.i1Control = control;
+	table.onclick = function()
+	{
+		I1DatePicker_HideMonthPicker(this.i1Control);
+	};
+
+	rootElement.appendChild(table);
+	
+	// Column defs.
+	colGroup = doc.createElement('colGroup');
+	for (var i = 0; i < 7; i++)
+	{
+		col = doc.createElement('col');
+		col.style.width = '14.2857%';
+		colGroup.appendChild(col);
+	}
+	table.appendChild(colGroup);
+	
+	// Month row.
+	tr = table.insertRow(-1);
+	I1DatePicker_SetElementCss(tr, control.i1HeaderRowCssClass, 
+		control.i1HeaderRowCssAttributes);
+	// Left Arrow	
+	td = tr.insertCell(-1);
+	I1DatePicker_SetUnselectable(td);
+	td.style.textAlign = 'left';
+	td.style.cursor = 'pointer';
+	I1DatePicker_SetElementCss(td, control.i1HeaderCellCssClass, 
+		control.i1HeaderCellCssAttributes);
+	element = doc.createElement('img');
+	element.src = control.i1PrevImageUrl;
+	element.i1Control = control;
+	element.onmouseover = function()
+	{
+		this.src = this.i1Control.i1PrevPressedImageUrl;
+	};
+	element.onmouseout = function()
+	{
+		this.src = this.i1Control.i1PrevImageUrl;
+	};
+	element.onclick = function()
+	{
+		if (I1DatePicker_IsMonthPickerOpen(this.i1Control))
+		{
+			return;
+		}
+		I1DatePicker_NavigateCalendar(this.i1Control, false);
+	};
+	td.appendChild(element);
+	// Center caption.
+	td = tr.insertCell(-1);
+	I1DatePicker_SetUnselectable(td);
+	td.colSpan = 5;
+	td.style.textAlign = 'center';
+	td.id = I1DatePicker_GetPopupElementId(control, 'MonthCaption');
+	td.style.cursor = 'pointer';
+	I1DatePicker_SetElementCss(td, control.i1HeaderCellCssClass, 
+		control.i1HeaderCellCssAttributes);
+	td.i1Control = control;
+
+    /////these are differences between bottom and upper versions of function
+    ///upper version
+	//td.onclick = function (event) {
+	//    if (I1DatePicker_IsMonthPickerOpen(this.i1Control)) {
+	//        return;
+	//    }
+	//    I1DatePicker_ShowMonthPicker(this.i1Control);
+	//    if (event) {
+	//        event.cancelBubble = true;
+	//    }
+	//    else {
+	//        this.document.parentWindow.event.cancelBubble = true;
+	//    }
+	//};
+    ///end of upper version
+    ///botom version
+	if (td.attachEvent) {
+	    td.attachEvent('onclick', TD_Handler);
+	}
+	else {
+        if (td.addEventListener)
+            td.addEventListener('click', TD_Handler,false);        
+	}
+    ///end of bottom version
+
+
+	td.onmouseover = function()
+	{
+		I1DatePicker_SetElementCss(this, this.i1Control.i1HeaderCellHoverCssClass, 
+			this.i1Control.i1HeaderCellHoverCssAttributes);
+	};
+	td.onmouseout = function()
+	{
+		I1DatePicker_SetElementCss(this, this.i1Control.i1HeaderCellCssClass, 
+			this.i1Control.i1HeaderCellCssAttributes);
+	};
+	// Right Arrow	
+	td = tr.insertCell(-1);
+	I1DatePicker_SetUnselectable(td);
+	td.style.textAlign = 'right';
+	td.style.cursor = 'pointer';
+	I1DatePicker_SetElementCss(td, control.i1HeaderCellCssClass, 
+		control.i1HeaderCellCssAttributes);
+	element = doc.createElement('img');
+	element.src = control.i1NextImageUrl;
+	element.i1Control = control;
+	element.onmouseover = function()
+	{
+		this.src = this.i1Control.i1NextPressedImageUrl;
+	};
+	element.onmouseout = function()
+	{
+		this.src = this.i1Control.i1NextImageUrl;
+	};
+	element.onclick = function()
+	{
+		if (I1DatePicker_IsMonthPickerOpen(this.i1Control))
+		{
+			return;
+		}
+		I1DatePicker_NavigateCalendar(this.i1Control, true);
+	};
+	td.appendChild(element);
+	
+	// Weekday name cells
+	tr = table.insertRow(-1);
+	I1DatePicker_SetElementCss(tr, control.i1WeekdayRowCssClass, 
+		control.i1WeekdayRowCssAttributes);
+	for (var i = 0; i < 7; i++)
+	{
+		td = tr.insertCell(-1);
+		I1DatePicker_SetUnselectable(td);
+		I1DatePicker_SetElementCss(td, control.i1WeekdayCellCssClass, 
+			control.i1WeekdayCellCssAttributes);
+
+        if (preferredLanguage == 'Francais') {
+            switch (i) {
+                case 0: td.innerHTML = 'Dim'; break;
+                case 1: td.innerHTML = 'Lun'; break;
+                case 2: td.innerHTML = 'Mar'; break;
+                case 3: td.innerHTML = 'Mer'; break;
+                case 4: td.innerHTML = 'Jeu'; break;
+                case 5: td.innerHTML = 'Ven'; break;
+                case 6: td.innerHTML = 'Sam'; break;
+            }
+        }
+        else {
+            switch (i) {
+                case 0: td.innerHTML = 'Sun'; break;
+                case 1: td.innerHTML = 'Mon'; break;
+                case 2: td.innerHTML = 'Tue'; break;
+                case 3: td.innerHTML = 'Wed'; break;
+                case 4: td.innerHTML = 'Thu'; break;
+                case 5: td.innerHTML = 'Fri'; break;
+                case 6: td.innerHTML = 'Sat'; break;
+            }
+        }
+	}
+
+	// Date cells.
+	for (var i = 0; i < 6; i++)
+	{
+		tr = table.insertRow(-1);
+		I1DatePicker_SetElementCss(tr, control.i1DateRowCssClass, 
+			control.i1DateRowCssAttributes);
+		
+		for (var j = 0; j < 7; j++)
+		{
+			td = tr.insertCell(-1);
+			I1DatePicker_SetUnselectable(td);
+			td.style.cursor = 'pointer';
+			I1DatePicker_SetElementCss(td, control.i1DateCellCssClass, 
+				control.i1DateCellCssAttributes);
+
+			td.i1Control = control;
+		}
+	}
+	
+	// Now, the year/month picker.
+	element = doc.createElement('div');
+	element.id = I1DatePicker_GetPopupElementId(control, 'ctlMonthPicker');
+	element.style.position = 'absolute';
+	element.style.zIndex = '200000';
+	element.style.overflow = 'hidden';
+	element.style.height = 'auto';
+	element.style.width = control.i1MonthPickerWidth + 'px';
+	element.style.display = 'none';
+	element.style.cursor = 'default';
+	I1DatePicker_SetElementCss(element, control.i1MonthPickerFrameCssClass, 
+		control.i1MonthPickerFrameCssAttributes);
+	rootElement.appendChild(element);
+	
+	table = doc.createElement('table');
+	table.id = I1DatePicker_GetPopupElementId(control, 'ctlMonthPickerTable');
+	table.style.width = '100%';
+	table.style.tableLayout = 'fixed';
+	table.align = 'center';
+	table.border = 0;
+	table.cellSpacing = 2;
+	table.cellPadding = 0;
+	element.appendChild(table);
+	
+	// Column definitions.
+	colGroup = doc.createElement('colGroup');
+	for (var i = 0; i < 4; i++)
+	{
+		col = doc.createElement('col');
+		col.style.width = i < 2 ? '20%' : '30%';
+		colGroup.appendChild(col);
+	}
+	table.appendChild(colGroup);
+
+	// Months and Years.
+    var months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (preferredLanguage == 'Francais')
+        months = frenchAbbreviatedMonth; //= ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Jun', 'Jui', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc']
+	
+	var curMonth = 0;
+	for (var i = 0; i < 6; i++)
+	{
+		tr = table.insertRow(-1);
+		td = tr.insertCell(-1);
+		I1DatePicker_SetUnselectable(td);
+		I1DatePicker_SetUnselectable(td);
+		I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+			control.i1MonthPickerCellCssAttributes);
+		td.style.cursor = 'pointer';
+		td.innerHTML = months[curMonth];
+		td.i1Control = control;
+		td.i1MonthValue = curMonth;
+		td.onclick = function()
+		{
+			this.i1Control.i1MonthPickerDate.setMonth(this.i1MonthValue);
+			I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+		};
+		td.ondblclick = function()
+		{
+			this.i1Control.i1MonthPickerDate.setMonth(this.i1MonthValue);
+			I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+			this.i1Control.i1CalendarDate = new Date(this.i1Control.i1MonthPickerDate);
+			I1DatePicker_FillCalendar(this.i1Control, this.i1Control.i1MonthPickerDate);
+			I1DatePicker_HideMonthPicker(this.i1Control);
+		};
+		curMonth++;
+		td = tr.insertCell(-1);
+		I1DatePicker_SetUnselectable(td);
+		I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+			control.i1MonthPickerCellCssAttributes);
+		td.style.cursor = 'pointer';
+		td.innerHTML = months[curMonth];
+		td.i1Control = control;
+		td.i1MonthValue = curMonth;
+		td.onclick = function()
+		{
+			this.i1Control.i1MonthPickerDate.setMonth(this.i1MonthValue);
+			I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+		};
+		td.ondblclick = function()
+		{
+			this.i1Control.i1MonthPickerDate.setMonth(this.i1MonthValue);
+			I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+			this.i1Control.i1CalendarDate = new Date(this.i1Control.i1MonthPickerDate);
+			I1DatePicker_FillCalendar(this.i1Control, this.i1Control.i1MonthPickerDate);
+			I1DatePicker_HideMonthPicker(this.i1Control);
+		};
+		curMonth++;
+		if (i < 5)
+		{
+			td = tr.insertCell(-1);
+			I1DatePicker_SetUnselectable(td);
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+				control.i1MonthPickerCellCssAttributes);
+			td.style.cursor = 'pointer';
+			td.style.textAlign = 'center';
+			td.i1Control = control;
+			td.onclick = function()
+			{
+				this.i1Control.i1MonthPickerDate.setYear(parseInt(this.innerHTML));
+				I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+			};
+			td.ondblclick = function()
+			{
+				this.i1Control.i1MonthPickerDate.setYear(parseInt(this.innerHTML));
+				I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+				this.i1Control.i1CalendarDate = new Date(this.i1Control.i1MonthPickerDate);
+				I1DatePicker_FillCalendar(this.i1Control, this.i1Control.i1MonthPickerDate);
+				I1DatePicker_HideMonthPicker(this.i1Control);
+			};
+			td = tr.insertCell(-1);
+			I1DatePicker_SetUnselectable(td);
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+				control.i1MonthPickerCellCssAttributes);
+			td.style.cursor = 'pointer';
+			td.style.textAlign = 'center';
+			td.i1Control = control;
+			td.onclick = function()
+			{
+				this.i1Control.i1MonthPickerDate.setYear(parseInt(this.innerHTML));
+				I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+			};
+			td.ondblclick = function()
+			{
+				this.i1Control.i1MonthPickerDate.setYear(parseInt(this.innerHTML));
+				I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+				this.i1Control.i1CalendarDate = new Date(this.i1Control.i1MonthPickerDate);
+				I1DatePicker_FillCalendar(this.i1Control, this.i1Control.i1MonthPickerDate);
+				I1DatePicker_HideMonthPicker(this.i1Control);
+			};
+		}
+		else
+		{
+			td = tr.insertCell(-1);
+			I1DatePicker_SetUnselectable(td);
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+				control.i1MonthPickerCellCssAttributes);
+			td.style.textAlign = 'left';
+			element = doc.createElement('img');
+			element.src = control.i1MonthPickerPrevImageUrl;
+			element.style.cursor = 'pointer';
+			element.i1ImageUrl = control.i1MonthPickerPrevImageUrl;
+			element.i1PressedUrl = control.i1MonthPickerPrevPressedImageUrl;
+			element.onmouseover = function()
+			{
+				this.src = this.i1PressedUrl;
+			};
+			element.onmouseout = function()
+			{
+				this.src = this.i1ImageUrl;
+			};
+			element.i1Control = control;
+			element.onclick = function()
+			{
+				this.i1Control.i1MonthPickerDate.setYear(this.i1Control.i1MonthPickerDate.getFullYear() - 10);
+				I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+			};
+			td.appendChild(element);
+			
+			td = tr.insertCell(-1);
+			I1DatePicker_SetUnselectable(td);
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+				control.i1MonthPickerCellCssAttributes);
+			td.style.textAlign = 'right';
+			element = doc.createElement('img');
+			element.src = control.i1MonthPickerNextImageUrl;
+			element.style.cursor = 'pointer';
+			element.i1ImageUrl = control.i1MonthPickerNextImageUrl;
+			element.i1PressedUrl = control.i1MonthPickerNextPressedImageUrl;
+			element.onmouseover = function()
+			{
+				this.src = this.i1PressedUrl;
+			};
+			element.onmouseout = function()
+			{
+				this.src = this.i1ImageUrl;
+			};
+			element.i1Control = control;
+			element.onclick = function()
+			{
+				this.i1Control.i1MonthPickerDate.setYear(this.i1Control.i1MonthPickerDate.getFullYear() + 10);
+				I1DatePicker_FillMonthPicker(this.i1Control, this.i1Control.i1MonthPickerDate);
+			};
+			td.appendChild(element);
+		}
+	}
+	
+	// Buttons
+	tr = table.insertRow(-1);
+	td = tr.insertCell(-1);
+	I1DatePicker_SetUnselectable(td);
+	td.colSpan = 4;
+	td.style.height = 'auto';
+	td.style.textAlign = 'right';
+	I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+		control.i1MonthPickerCellCssAttributes);
+	element = doc.createElement('input');
+	element.type = 'button';
+	element.value = 'OK';
+	element.tabIndex = -1;
+	element.setAttribute('unselectable', 'v'); //set this to prevent closing calendar on click
+	I1DatePicker_SetElementCss(element, control.i1MonthPickerButtonCssClass,
+		control.i1MonthPickerButtonCssAttributes);
+	element.style.marginRight = '4px';
+	element.i1Control = control;
+	element.onclick = function()
+	{
+		this.i1Control.i1CalendarDate = new Date(this.i1Control.i1MonthPickerDate);
+		I1DatePicker_FillCalendar(this.i1Control, this.i1Control.i1MonthPickerDate);
+		I1DatePicker_HideMonthPicker(this.i1Control);
+	};
+	td.appendChild(element);
+	element = doc.createElement('input');
+	element.type = 'button';
+	element.value = 'Cancel';
+	element.tabIndex = -1;
+	element.setAttribute('unselectable', 'v'); //set this to prevent closing calendar on click
+	I1DatePicker_SetElementCss(element, control.i1MonthPickerButtonCssClass,
+		control.i1MonthPickerButtonCssAttributes);
+	element.i1Control = control;
+	element.onclick = function()
+	{
+		I1DatePicker_HideMonthPicker(this.i1Control);
+	};
+	td.appendChild(element);
+}
+
+function I1DatePicker_IsPopupOpen(control)
+{
+	if (!control.i1Popup)
+	{
+		return false;
+	}
+	else if (I1DatePicker_IsIEPopup(control.i1Popup))
+	{
+		return control.i1Popup.isOpen;
+	}
+	else
+	{
+		return control.i1Popup.style.display == 'block';
+	}
+}
+
+function I1DatePicker_IsIEPopup(popup)
+{
+	if (popup.tagName)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
+/* I1DatePicker_ShowPopup */
+function I1DatePicker_ShowPopup(control)
+{
+	if (control.disabled || control.readOnly) return;
+
+    //if any open calendar, close it
+	if (i1CurrentDatePickerControl != null)
+	    I1DatePicker_HidePopup(i1CurrentDatePickerControl);
+
+	I1DatePicker_InitPopup(control);
+	
+	control.select();
+	
+	control.i1CalendarDate = control.i1Date;
+	I1DatePicker_FillCalendar(control, control.i1CalendarDate);
+	
+	if (I1DatePicker_IsIEPopup(control.i1Popup))
+	{
+		if (typeof(control.i1PopupHeight) != 'number')
+		{
+			// Show the popup once to calculate height.
+			control.i1Popup.show(0, control.offsetHeight, control.i1PopupWidth, 0, control);
+			control.i1PopupHeight = I1DatePicker_GetElementByRelativeId(control, 'ctlCalendar').offsetHeight;
+			I1DatePicker_HidePopup(control);
+		}
+		// Now really show it.
+		control.i1Popup.show(0, control.offsetHeight + control.i1PopupVerticalOffset, control.i1PopupWidth, control.i1PopupHeight, control);
+	}
+	else
+	{
+		var table = I1DatePicker_GetElementByRelativeId(control, 'ctlCalendar');
+		//var x = I1Controls_GetElementLeft(control);
+		//var y = I1Controls_GetElementTop(control) + control.offsetHeight + control.i1PopupVerticalOffset - 1;
+		//control.i1Popup.style.left = x.toString() + 'px';
+		//control.i1Popup.style.top = y.toString() + 'px';
+		control.i1Popup.style.display = 'block';
+		control.i1Popup.style.width = control.i1PopupWidth.toString() + 'px';
+        control.i1Popup.style.height = "200px";// table.offsetHeight.toString() + 'px';
+
+        $('#' + control.id + '_calendarPopUpOuterDiv').position({
+            my: "left top",
+            at: "left bottom",
+            of: $('#' + control.id),
+            collision: "fit"
+        });
+
+		//var popupX = I1Controls_GetElementLeft(control.i1Popup);
+		//var popupY = I1Controls_GetElementTop(control.i1Popup);
+		//if ((popupX + control.i1Popup.offsetWidth) > window.innerWidth)
+		//{
+		//	control.i1Popup.style.left = (window.innerWidth - control.i1Popup.offsetWidth).toString() + 'px';
+		//}
+		//if ((popupY + control.i1Popup.offsetHeight) > window.innerHeight)
+		//{
+		//	control.i1Popup.style.top = (window.innerHeight - control.i1Popup.offsetHeight).toString() + 'px';
+		//}
+	}
+	i1CurrentDatePickerControl = control;	
+	I1DatePicker_HideMonthPicker(control);
+
+	control.select();
+	control.focus();
+}
+
+function I1DatePicker_HidePopup(control)
+{
+	if (!control.i1Popup)
+	{
+		return;
+	}
+	
+	if (I1DatePicker_IsIEPopup(control.i1Popup))
+	{
+		control.i1Popup.hide();
+	}
+	else
+	{
+		control.i1Popup.style.display = 'none';
+		I1DatePicker_PopupHideHandler();
+	}
+}
+
+function I1DatePicker_Toggle(control) {
+    if (I1DatePicker_IsPopupOpen(control)) 
+        I1DatePicker_HidePopup(control);    
+    else 
+        I1DatePicker_ShowPopup(control);
+}
+
+/* I1DatePicker_ShowMonthPicker */
+function I1DatePicker_ShowMonthPicker(control)
+{
+	var monthPicker;
+	var calendar;
+	
+	I1DatePicker_InitPopup(control);
+	
+	if (!I1DatePicker_IsPopupOpen(control))
+	{
+		I1DatePicker_ShowPopup(control);		
+	}
+	calendar = I1DatePicker_GetElementByRelativeId(control, 'ctlCalendar');
+	monthPicker = I1DatePicker_GetElementByRelativeId(control, 'ctlMonthPicker');
+	
+	control.i1MonthPickerDate = new Date(control.i1CalendarDate);
+	I1DatePicker_FillMonthPicker(control, control.i1MonthPickerDate);
+
+	monthPicker.style.display = 'block';
+	monthPicker.style.left = ((calendar.offsetWidth - monthPicker.offsetWidth) / 2).toFixed(0) + 'px';
+	monthPicker.style.top = ((calendar.offsetHeight - monthPicker.offsetHeight) / 2).toFixed(0) + 'px';
+}
+
+/* I1DatePicker_HideMonthPicker */
+function I1DatePicker_HideMonthPicker(control)
+{
+	I1DatePicker_InitPopup(control);
+	if (I1DatePicker_GetElementByRelativeId(control, 'ctlMonthPicker'))
+		I1DatePicker_GetElementByRelativeId(control, 'ctlMonthPicker').style.display = 'none';
+	else
+		document.firstElementChild.lastElementChild.appendChild(control.i1Popup);
+}
+
+/* I1DatePicker_IsMonthPickerOpen */
+function I1DatePicker_IsMonthPickerOpen(control)
+{
+	return typeof(control.i1Popup) != 'undefined' && control.i1Popup != null 
+		&& I1DatePicker_GetElementByRelativeId(control, 'ctlMonthPicker').style.display != 'none';
+}
+
+/* I1DatePicker_FillMonthPicker */
+function I1DatePicker_FillMonthPicker(control, date)
+{
+	I1DatePicker_InitPopup(control);	
+	
+	var table = I1DatePicker_GetElementByRelativeId(control, 'ctlMonthPickerTable');
+
+	// Years	
+	var curYear = Math.floor(date.getFullYear() / 10) * 10;
+	for (var i = 0; i < 5; i++)
+	{
+		var td = table.rows[i].cells[2];
+		td.innerHTML = curYear;
+		if (curYear == date.getFullYear())
+		{
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerSelectedCellCssClass,
+				control.i1MonthPickerSelectedCellCssAttributes);
+		}
+		else
+		{
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+				control.i1MonthPickerCellCssAttributes);
+		}
+		curYear++;
+		var td = table.rows[i].cells[3];
+		td.innerHTML = curYear;
+		if (curYear == date.getFullYear())
+		{
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerSelectedCellCssClass,
+				control.i1MonthPickerSelectedCellCssAttributes);
+		}
+		else
+		{
+			I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+				control.i1MonthPickerCellCssAttributes);
+		}
+		curYear++;
+	}
+	
+	// Months
+	var curMonth = 0;
+	for (var i = 0; i < 6; i++)
+	{
+		for (var j = 0; j < 2; j++)
+		{
+			var td = table.rows[i].cells[j];
+			if (curMonth == date.getMonth())
+			{
+				I1DatePicker_SetElementCss(td, control.i1MonthPickerSelectedCellCssClass,
+					control.i1MonthPickerSelectedCellCssAttributes);
+			}
+			else
+			{
+				I1DatePicker_SetElementCss(td, control.i1MonthPickerCellCssClass,
+					control.i1MonthPickerCellCssAttributes);
+			}
+			curMonth++;
+		}
+	}
+}
+
+/* I1DatePicker_FillCalendar */
+function I1DatePicker_FillCalendar(control, date)
+{
+	var popup = control.i1Popup;
+	var table = I1DatePicker_GetPopupRootElement(control).firstChild;
+	var monthCell = table.rows[0].cells[1];
+	var walkDate;
+	var selectedDate = control.i1Date;
+	  
+	// First, the month.
+    var months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    if (preferredLanguage == 'Francais')
+        months = frenchMonth; //['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+
+	monthCell.innerHTML = months[date.getMonth()] + ' ' + date.getFullYear();
+	
+	// The dates. 
+	walkDate = new Date(date);
+	walkDate.setDate(1); 
+    ///this line was only on bottom version of script
+	walkDate.setHours(8); //Need this adjustment because of case 6177. When DST switches on, PDT happens to be 8 hrs behind
+				//GMT, and hence the date skips over 1 day local time, though the GMT dates are correctly cycled through
+				//Refer example below
+	//Fri, 11 Mar 2011 07:00:00 GMT : Thu Mar 10 2011 23:00:00 GMT-0800 (Pacific Standard Time): Year - 2011: month - 2: Day of Month - 11: Day of week - 5: Hours - 7: min - 0: s - 0: ms - 0
+	//Sat, 12 Mar 2011 07:00:00 GMT : Fri Mar 11 2011 23:00:00 GMT-0800 (Pacific Standard Time): Year - 2011: month - 2: Day of Month - 12: Day of week - 6: Hours - 7: min - 0: s - 0: ms - 0
+	//Sun, 13 Mar 2011 07:00:00 GMT : Sat Mar 12 2011 23:00:00 GMT-0800 (Pacific Standard Time): Year - 2011: month - 2: Day of Month - 13: Day of week - 0: Hours - 7: min - 0: s - 0: ms - 0
+	//Mon, 14 Mar 2011 07:00:00 GMT : Mon Mar 14 2011 00:00:00 GMT-0700 (Pacific Daylight Time): Year - 2011: month - 2: Day of Month - 14: Day of week - 1: Hours - 7: min - 0: s - 0: ms - 0
+	//Tue, 15 Mar 2011 07:00:00 GMT : Tue Mar 15 2011 00:00:00 GMT-0700 (Pacific Daylight Time): Year - 2011: month - 2: Day of Month - 15: Day of week - 2: Hours - 7: min - 0: s - 0: ms - 0
+
+	walkDate = new Date(walkDate.valueOf() - 1000 * 60 * 60 * 24 * (walkDate.getDay()));
+	for (var j = 0; j < 6; j++)
+	{
+		for (var i = 0; i < 7; i++)
+		{
+			var td = table.rows[j + 2].cells[i];
+			td.innerHTML = walkDate.getDate().toString();
+			if (walkDate.getFullYear() == selectedDate.getFullYear() 
+				&& walkDate.getMonth() == selectedDate.getMonth()
+				&& walkDate.getDate() == selectedDate.getDate())
+			{
+				I1DatePicker_SetElementCss(td, control.i1SelectedDateCellCssClass, 
+					control.i1SelectedDateCellCssAttributes);
+			}
+			else if (walkDate.getMonth() != date.getMonth())
+			{
+				I1DatePicker_SetElementCss(td, control.i1OtherMonthDateCellCssClass, 
+					control.i1OtherMonthCellCssAttributes);
+			}
+			else
+			{
+				I1DatePicker_SetElementCss(td, control.i1DateCellCssClass, 
+					control.i1DateCellCssAttributes);
+			}
+			td.i1CellDate = new Date(walkDate);
+			td.onclick = function()
+			{
+				if (I1DatePicker_IsMonthPickerOpen(this.i1Control))
+				{
+					return;
+				}
+				I1DatePicker_SetDate(this.i1Control, this.i1CellDate, true);
+			};
+			var oldDate = walkDate.getDate();
+			walkDate = new Date(walkDate.valueOf() + 1000 * 60 * 60 * 24);
+			// Sometimes adding 24 hours is not sufficient, therefore 
+			// we keep on adding an hour until we get there.
+			while(walkDate.getDate() == oldDate)
+			{
+				walkDate = new Date(walkDate.valueOf() + 1000 * 60 * 60);	
+			}
+		}
+	}
+}
+
+/* I1DatePicker_NavigateCalendar */
+function I1DatePicker_NavigateCalendar(control, add)
+{
+	var newViewDate;
+	var oldViewDate = new Date(control.i1CalendarDate);
+	
+	// Add/subtract at least 28 days, and then increment/decrement until we get to the other months.
+	newViewDate = new Date(control.i1CalendarDate.valueOf() + 1000 * 60 * 60 * 24 * 28 * (add ? 1 : -1));
+	while (newViewDate.getMonth() == oldViewDate.getMonth())
+	{
+		newViewDate = new Date(newViewDate.valueOf() + 1000 * 60 * 60 * 24 * (add ? 1 : -1));
+	}
+	
+	control.i1CalendarDate = new Date(newViewDate);
+	I1DatePicker_FillCalendar(control, control.i1CalendarDate);
+	I1DatePicker_HideMonthPicker(control);
+}
+
+/* I1DatePicker_SetElementCss */
+function I1DatePicker_SetElementCss(element, newCssClass, newAttributes)
+{
+	var rx = /^\s*([^:]+):(.+)\s*$/;
+	var trimRx = /(^\s+|\s+$)/;
+	
+	if (typeof(newCssClass) != 'undefined' && newCssClass != null)
+	{
+		element.className = newCssClass;
+	}
+
+	if (typeof(newAttributes) == 'undefined' || newAttributes == null)
+	{
+		return;
+	}
+	
+	var attributes = newAttributes.split(';');
+	for (var i = 0; i < attributes.length; i++)
+	{
+		if (rx.exec(attributes[i]) != null)
+		{
+			element.style.setAttribute(RegExp.$1.replace(trimRx, ''), RegExp.$2.replace(trimRx, ''), 0);
+		}
+	}
+}
+
+/* I1DatePicker_SetDate */
+function I1DatePicker_SetDate(control, date, hidePopup)
+{
+	var formatResult = control.i1FormatDateProc(date);
+	I1DatePicker_SetFormattedDate(control, formatResult[0], new Date(Date.parse(formatResult[1])));
+	I1DatePicker_SetElementCss(control, control.i1TextBoxCssClass, 
+			control.i1TextBoxCssAttributes);
+	control.select();
+	if (hidePopup)
+	{
+		I1DatePicker_HidePopup(control);
+	}
+}
+
+/* I1DatePicker_SetFormattedDate */
+function I1DatePicker_SetFormattedDate(control, formattedDate, date)
+{
+	//var diff = date - control.i1OldDate;
+    var diff = date.getDate();
+	control.value = formattedDate;
+	
+	control.i1Date = date;
+	control.i1OldDate = new Date(Date.parse(control.i1Date));
+    
+	if (control.i1OnChangeHandler != null)
+	{
+		control.i1OnChangeHandler(diff);
+	}
+}
+
+/* I1DatePicker_HandleKeyDown */
+function I1DatePicker_HandleKeyDown(event, control)
+{
+	if (control.disabled || control.readOnly) return;
+	
+	// Shortcut keys: C, T, up, down, page up, page down, home, end
+	var keyCodeVar = event.keyCode;
+	
+	var date = control.i1Date;
+	
+	I1DatePicker_InitPopup(control);
+	
+	// Shortcut keys.
+	switch (keyCodeVar)
+	{
+		// C
+		case 67: 
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			if (!I1DatePicker_IsPopupOpen(control))
+			{
+				I1DatePicker_ShowPopup(control);
+			}
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			return;
+		// T
+		case 84:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			if (control.i1Today != null)
+			{
+				I1DatePicker_SetFormattedDate(control, control.i1TodayFormatted, control.i1Today);
+				I1DatePicker_PreventDefaultKeyDown(control, event);
+				return;
+			}
+			else
+			{
+				date = new Date();
+				I1DatePicker_PreventDefaultKeyDown(control, event);
+				break;
+			}
+		// page up: minus a month if popup in open, add a month if popup in not open.
+		case 33:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			date = I1DatePicker_AddMonth(date, !I1DatePicker_IsPopupOpen(control));
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			break;
+		// page down: add a month if popup is open, minus a month if popup is not open.
+		case 34:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			date = I1DatePicker_AddMonth(date, I1DatePicker_IsPopupOpen(control));
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			break;
+		// home: minus a year if popup is open, add a year if popup is not open.
+		case 36:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			if (I1DatePicker_IsPopupOpen(control))
+			{
+				date.setFullYear(date.getFullYear() - 1);
+			}
+			else
+			{
+				date.setFullYear(date.getFullYear() + 1);
+			}
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			break;
+		// end: add a year if popup is open, minus a year if popup is not open.
+		case 35:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			if (I1DatePicker_IsPopupOpen(control))
+			{
+				date.setFullYear(date.getFullYear() + 1);
+			}
+			else
+			{
+				date.setFullYear(date.getFullYear() - 1);
+			}
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			break;
+		// up: add a day if popup is hidden, otherwise minus 7 days.
+		case 38:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			date = I1DatePicker_AddDay(date, I1DatePicker_IsPopupOpen(control) ? -7 : +1);
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			break;
+		// down: minus a day if popup is hidden, otherwise add 7 days.
+		case 40:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			date = I1DatePicker_AddDay(date, I1DatePicker_IsPopupOpen(control) ? 7 : -1);
+			I1DatePicker_PreventDefaultKeyDown(control, event);
+			break;
+		// left: minus a day if popup is open.
+		case 37:
+			if (I1DatePicker_IsPopupOpen(control))
+			{
+				date = I1DatePicker_AddDay(date, -1);
+				I1DatePicker_PreventDefaultKeyDown(control, event);
+				break;
+			}
+			else
+			{
+				return;
+			}
+		// right: add a day if popup is open.
+		case 39:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			if (I1DatePicker_IsPopupOpen(control))
+			{
+				date = I1DatePicker_AddDay(date, 1);
+				I1DatePicker_PreventDefaultKeyDown(control, event);
+				break;
+			}
+			else
+			{
+				return;
+			}
+		// enter: close the popup
+		case 13:
+			if (event.ctlKey || event.altKey || event.shiftKey) return;
+			if (I1DatePicker_IsPopupOpen(control))
+			{
+				I1DatePicker_HidePopup(control);
+				I1DatePicker_PreventDefaultKeyDown(control, event);
+			}
+			control.focus();
+			control.select();
+			return;
+		// ESC: closes the popup.
+		case 27:
+			if (!I1DatePicker_IsIEPopup(control.i1Popup))
+			{
+				I1DatePicker_HidePopup(control);
+				I1DatePicker_PreventDefaultKeyDown(control, event);
+				return;
+			}
+			else
+			{
+				break;
+			}
+		default:
+			I1DatePicker_PermitDefaultKeyDown(control, event);
+			return;
+	}
+	
+	I1DatePicker_SetDate(control, date, false);
+	
+	if (I1DatePicker_IsPopupOpen(control))
+	{
+		control.i1CalendarDate = new Date(date);
+		I1DatePicker_FillCalendar(control, control.i1CalendarDate);
+	}
+
+	control.select();
+}
+
+/* I1DatePicker_AddMonth */
+function I1DatePicker_AddMonth(date, add)
+{
+	var oldMonth = date.getMonth();
+	var newMonth;
+	var newMaxDate;
+	var newDate = new Date(date);
+	var testDate;
+	var DateVal1 = date.getDate();
+	
+	newDate.setDate(1);
+	if (oldMonth == 0 && !add)
+	{
+		newMonth = 11;
+		newDate.setFullYear(newDate.getFullYear() - 1);
+	}
+	else if (oldMonth == 11 && add)
+	{
+		newMonth = 0;
+		newDate.setFullYear(newDate.getFullYear() + 1);
+	}
+	else
+	{
+		newMonth = oldMonth + (add ? 1 : -1);
+	}
+	newDate.setMonth(newMonth);
+	
+	if (newMonth == 11)
+	{
+		testDate = new Date(newDate.getFullYear() + 1, 1, 1);
+	}
+	else
+	{
+		testDate = new Date(newDate.getFullYear(), newMonth + 1, 1);
+	}
+	testDate = new Date(testDate.valueOf() - 1000 * 60 * 60 * 24);
+	newMaxDate = testDate.getDate();
+	
+	if (date.getDate() > newMaxDate)
+	{
+		newDate.setDate(newMaxDate);
+	}
+	else
+	{
+		newDate.setDate(DateVal1);
+	}
+	
+	return newDate;
+}
+
+/* I1DatePicker_AddDay */
+function I1DatePicker_AddDay(date, numDays)
+{
+	var DateVal = date.getDate();
+	var YearVal = date.getFullYear();
+	var MonthVal = date.getMonth();
+	
+	var newDate = new Date(YearVal, MonthVal, DateVal);
+	
+	newDate = new Date(newDate.valueOf() + 1000 * 60 * 60);
+	
+	newDate = new Date(newDate.valueOf() + 1000 * 60 * 60 * 24 * numDays);
+	
+	newDate = new Date(newDate.getFullYear(), newDate.getMonth(), newDate.getDate());
+	
+	return newDate;
+}
+
+function I1DatePicker_LastDayofMonth(month,year) 
+{
+    var m = [31,28,31,30,31,30,31,31,30,31,30,31];
+    if (month != 2) return m[month - 1];
+    if (year%4 != 0) return m[1];
+    if (year%100 == 0 && year%400 != 0) return m[1];
+    return m[1] + 1;
+}

@@ -1,0 +1,765 @@
+// This file requires I1ControlsShared.js.
+
+function I1WebGrid_Init(grid, pixelHeight, focusRingStyleProc, firstPageProc, priorPageProc, 
+	priorPagingIncrementProc, nextPageProc, nextPagingIncrementProc, lastPageProc)
+{
+	if (grid.i1Initialized) return;
+	
+	grid.i1Initialized = true;
+	
+	var body = document.getElementById(grid.id + '_Body');
+	grid.i1Body = body;
+	grid.i1FocusBorderSize = parseInt(grid.getAttribute('i1FocusBorderSize'));
+	grid.i1BodyContainerRow = document.getElementById(grid.id + '_BodyContainerRow');
+	grid.i1BodyContainerCell = document.getElementById(grid.id + '_BodyContainerCell');
+	grid.i1Scroller = document.getElementById(grid.id + '_Scroller');
+	grid.i1FocusRingStyleFunction = focusRingStyleProc;
+	grid.i1Focused = false;
+	grid.i1SelectionDisabled = grid.getAttribute('i1SelectionDisabled') ? true : false;
+	grid.i1Disabled = grid.getAttribute('i1Disabled') ? true : false;
+	grid.i1FirstPageProc = firstPageProc;
+	grid.i1PriorPageProc = priorPageProc;
+	grid.i1PriorPagingIncrementProc = priorPagingIncrementProc;
+	grid.i1NextPagingIncrementProc = nextPagingIncrementProc;
+	grid.i1NextPageProc = nextPageProc;
+	grid.i1LastPageProc = lastPageProc;
+	grid.i1HeaderTable = document.getElementById(grid.getAttribute('i1HeaderTableID'));
+	grid.i1FooterTable = document.getElementById(grid.getAttribute('i1FooterTableID'));
+	grid.i1VScrollLoc = document.getElementById(grid.getAttribute('i1VScrollLocID'));
+	grid.i1HScrollLoc = document.getElementById(grid.getAttribute('i1HScrollLocID'));
+	grid.i1AllowRowLevelFocusRing = grid.getAttribute('i1AllowRowLevelFocusRing') ? true : false;
+	grid.i1ExportButton = document.getElementById(grid.getAttribute('i1ExportButtonID'));
+	if (grid.i1ExportButton != null)
+	{
+		grid.i1ExportButton.style.zIndex = Number.MAX_VALUE / 2 + 1; // Bit higher than the focus ring to keep it in front.
+	}
+	grid.i1ExportButtonHasShown = false;
+	grid.i1ExportButtonTimerId = null;
+	
+	// Hook up events.
+	
+	// onfocusin
+	var focusinEvent = I1IsMozilla() ? 'focus' : 'focusin';
+	I1AddEventHandler(grid, focusinEvent, function (event)
+	{
+		I1WebGrid_RegisterFocusIn(grid);
+		I1WebGrid_EnsureHighlightedRow(grid);
+		if (grid.i1HighlightedRow && !grid.i1HighlightedRow.getAttribute('i1RowDisabled'))
+		{
+			I1FireEvent(grid.i1HighlightedRow, 'mouseover');
+		}
+		else
+		{
+			I1WebGrid_ShowFocusRing(grid);
+		}
+	});
+	
+	// onfocusout
+	var focusoutEvent = I1IsMozilla() ? 'blur' : 'focusout';
+	I1AddEventHandler(grid, focusoutEvent, function (event)
+	{
+		I1WebGrid_RegisterFocusOut(grid);
+		I1WebGrid_HideFocusRing(grid);	
+		if (grid.i1HighlightedRow && !grid.i1HighlightedRow.getAttribute('i1RowDisabled'))
+		{
+			I1FireEvent(grid.i1HighlightedRow, 'mouseout');
+		}
+	});
+	
+	// Scroll area resize.
+	var resizeScrollProc = function (event)
+	{
+		I1WebGrid_ShowFocusRing(grid);
+		I1WebGrid_SaveScrollocation(grid.i1Scroller, grid.i1VScrollLoc, grid.i1HScrollLoc);
+		if (grid.i1FooterTable)
+		{
+			grid.i1FooterTable.style.left = -(grid.i1Scroller.scrollLeft) + 'px';
+		}
+		if (grid.i1HeaderTable)
+		{
+			grid.i1HeaderTable.style.left = -(grid.i1Scroller.scrollLeft) + 'px';
+		}
+	};
+	I1AddEventHandler(grid.i1Scroller, 'scroll', resizeScrollProc);
+	I1AddEventHandler(grid.i1Scroller, 'resize', resizeScrollProc);
+	
+	// onkeydown
+	if (!grid.getAttribute('i1Disabled'))
+	{
+		I1AddEventHandler(grid, 'keydown', function (e)
+		{
+			return I1WebGrid_HandleKeyDown(grid, e);
+		});
+	}
+	
+	// grid onresize
+	var gridResizeProc = function(event)
+	{
+		if (grid.i1HeaderTable)
+		{
+			I1WebGrid_MatchElementWidths(grid.i1Body, grid.i1HeaderTable);
+		}
+
+		if (grid.i1FooterTable)
+		{
+			I1WebGrid_MatchElementWidths(grid.i1Body, grid.i1FooterTable);
+		}
+	};
+	
+	if (window.addEventListener)
+	{
+		window.addEventListener('resize', gridResizeProc, false);
+	}
+	else
+	{
+		grid.attachEvent('onresize', gridResizeProc);
+	}
+	
+	// Export button related events.
+	var showExportButtonProc = function(event)
+	{
+           		
+		// Cancel previous timeout.
+		if (grid.i1ExportButtonTimerId != null)
+		{
+			window.clearTimeout(grid.i1ExportButtonTimerId);
+			grid.i1ExportButtonTimerId = null;
+		}
+		
+		// Display export button after 1 second.
+		grid.i1ExportButtonTimerId = window.setTimeout(function() {I1WebGrid_ShowExportButton(grid);}, 1000);
+	};
+	I1AddEventHandler(grid, 'mouseover', showExportButtonProc);
+	var scrollOnExportButtonProc = function(event)
+	{
+        I1WebGrid_HideExportButton(grid, false);
+	};
+	I1AddEventHandler(grid.i1Scroller, 'scroll', scrollOnExportButtonProc);
+	
+	var hideExportButtonProc = function(event)
+	{
+		var gridX = I1Controls_GetElementLeft(grid);
+		var gridY = I1Controls_GetElementTop(grid);
+
+		if ((event.clientX == 0 && event.clientY == 0 && event.target.tagName.toLowerCase() == 'tr')
+		|| (event.clientX >= gridX && event.clientX <= (gridX + grid.offsetWidth)
+		&& event.clientY >= gridY && event.clientY <= (gridY + grid.offsetHeight)))
+		{
+			// Only leave hide export button when 
+			// the mouse has left the grid area.
+			
+			// We deliberately want to ignore events
+			// issued from TR's with a cursor position
+			// of 0x0 since these are artifically
+			// fired.
+			return;
+        }
+
+        I1WebGrid_HideExportButton(grid, true);
+	};
+	I1AddEventHandler(grid, 'mouseout', hideExportButtonProc);
+	
+	var loadInit = function(e)
+	{
+		I1WebGrid_RectifyHeight(grid, pixelHeight);
+		I1WebGrid_RestoreScrollocation(grid.i1Scroller, grid.i1VScrollLoc, grid.i1HScrollLoc);		
+		gridResizeProc(null);
+	};
+	
+	I1AddEventHandler(window, 'load', loadInit);
+}
+
+// Should be invoked in focus event of 
+// any control within the grid that can receive
+// focus, as well as of the grid itself.
+function I1WebGrid_RegisterFocusIn(grid)
+{
+	grid.i1Focused = true;
+}
+
+function I1WebGrid_SetHeightToParentsActualHeight(contentDiv) {
+    if (I1IsIE() == true && contentDiv != null && contentDiv.parentNode.offsetHeight != null && contentDiv.parentNode.offsetHeight != 0) {
+        
+        var divInnerHTML = contentDiv.innerHTML;
+        contentDiv.innerHTML = "";
+        contentDiv.style.height = contentDiv.parentNode.offsetHeight;
+        contentDiv.innerHTML = divInnerHTML;
+    }
+}
+
+// Should be invoked in blur event of 
+// any control within the grid that can receive
+// focus, as well as of the grid itself.
+function I1WebGrid_RegisterFocusOut(grid)
+{
+	grid.i1Focused = false;
+}
+
+function I1WebGrid_RectifyHeight(grid, pixelHeight)
+{
+	// Only in Mozilla: the height of the scrolling DIV 
+	// is not sustained if the containing TD element is not sized absolutely.
+	// Note that this only works right now when the height is set in pixel values.
+	// [Tony Chow 02/12/2004]
+	if (pixelHeight == null || !window.navigator || !window.navigator.product || window.navigator.product.toLowerCase() != 'gecko') return;
+	
+	var rectifySizingHandler = function(e)
+	{
+		var ctl = grid.getElementsByTagName('tbody')[0];
+		var controlHeight = pixelHeight;
+		var otherRowHeight = 0;
+		
+		for (var i = 0; i < ctl.childNodes.length; i++)
+		{
+			var node = ctl.childNodes[i];
+			if (node.tagName && node.tagName.toLowerCase() == 'tr' && node.id != grid.i1BodyContainerRow.id)
+			{
+				otherRowHeight += node.offsetHeight;
+			}
+		}
+		
+		var height = grid.i1BodyContainerCell.style.height;
+        if (height == undefined || height == null) //do not overwrite if height has been assigned previously
+            grid.i1BodyContainerCell.style.height = (controlHeight - otherRowHeight).toString() + 'px';
+	};
+	
+	I1AddEventHandler(window, 'resize', rectifySizingHandler);
+	rectifySizingHandler(null);
+}
+
+// Shows the focus ring overlaid on the currently 
+// focused element (row or the scroller DIV).
+function I1WebGrid_ShowFocusRing(grid)
+{
+	if (grid.i1Focused == false) return;
+
+	var scroller = grid.i1Scroller;
+	var size = grid.i1FocusBorderSize;
+	
+	I1WebGrid_EnsureRing(grid, size);
+	
+	var ring = grid.i1FocusRing;	
+	var subjectLeft;
+	var subjectTop;
+	var subjectWidth;
+	var subjectHeight;
+	
+    // Determine which element the focus ring should surround.
+    if (grid.i1AllowRowLevelFocusRing == true && grid.i1Body && grid.i1Body.rows.length > 0 && grid.i1HighlightedRow)
+    {
+        var row = grid.i1HighlightedRow;
+        var table = grid.i1Body;
+    	
+        subjectLeft = row.offsetLeft + table.offsetLeft;
+        subjectTop = row.offsetTop + table.offsetTop;
+        subjectWidth = row.offsetWidth;
+        subjectHeight = row.offsetHeight;	
+    }
+    else
+    {
+        var clientArea;
+        try
+        {
+            clientArea = I1GetClientAreaDimensions(scroller);
+        }
+        catch(e)
+        {
+            return;
+        }
+        
+        subjectLeft = clientArea[0];
+        subjectTop = clientArea[1] + scroller.scrollTop;
+        subjectWidth = clientArea[2];
+        subjectHeight = clientArea[3];
+    }
+	
+	subjectLeft += scroller.scrollLeft;
+
+	var divSize = size > 10 ? size : 10;
+	
+	// Left border.
+	ring.left.style.width = divSize + 'px';
+	ring.left.style.height = subjectHeight + 'px';
+	ring.left.style.left = subjectLeft + 'px';
+	ring.left.style.top = subjectTop + 'px';
+	if (divSize != size)
+	{
+		ring.left.style.clip = 'rect(' + size + 'px ' + size + 'px ' + (subjectHeight - size) + 'px 0px)';
+	}
+
+	// Right border.
+	ring.right.style.width = divSize + 'px';
+	ring.right.style.height = subjectHeight + 'px';
+	ring.right.style.left = subjectLeft + subjectWidth - divSize + 'px';
+	ring.right.style.top = subjectTop + 'px';
+	if (divSize != size)
+	{
+		ring.right.style.clip = 'rect(' + size + 'px ' + divSize + 'px ' + (subjectHeight - size) + 'px ' + (divSize - size) + 'px)';
+	}
+	
+	// Top border.
+	ring.top.style.width = subjectWidth + 'px';
+	ring.top.style.height = divSize + 'px';
+	ring.top.style.left = subjectLeft + 'px';
+	ring.top.style.top = subjectTop + 'px';
+	if (divSize != size)
+	{
+		ring.top.style.clip = 'rect(0px ' + subjectWidth + 'px ' + size + 'px 0px)';
+	}
+
+	// Bottom border.
+	ring.bottom.style.width = subjectWidth + 'px';
+	ring.bottom.style.height = divSize + 'px';
+	ring.bottom.style.left = subjectLeft + 'px';
+	ring.bottom.style.top = (subjectTop + subjectHeight - divSize) + 'px';
+	if (divSize != size)
+	{
+		ring.bottom.style.clip = 'rect(' + (divSize - size) + 'px ' + subjectWidth + 'px ' + divSize + 'px 0px)';
+	}
+
+	// Show.
+	ring.left.style.display = 'block';
+	ring.right.style.display = 'block';
+	ring.top.style.display = 'block';
+	ring.bottom.style.display = 'block';
+}
+
+function I1WebGrid_HideFocusRing(grid)
+{
+	var ring = grid.i1FocusRing;
+	if (ring)
+	{
+		ring.left.style.display = 'none';
+		ring.right.style.display = 'none';
+		ring.top.style.display = 'none';
+		ring.bottom.style.display = 'none';
+	}
+}
+
+function I1WebGrid_EnsureRing(grid, size)
+{
+	if (!grid.i1FocusRing)
+	{
+		grid.i1FocusRing = new I1WebGridFocusRing(grid, size, grid.i1FocusRingStyleFunction);
+	}
+}
+
+function I1WebGridFocusRing(grid, size, stylingInitFunction)
+{
+	this.leftId = grid.id + '_FocusBorder_Left';
+	this.rightId = grid.id + '_FocusBorder_Right';
+	this.topId = grid.id + '_FocusBorder_Top';
+	this.bottomId = grid.id + '_FocusBorder_Bottom';
+	
+	this.left = I1WebGrid_CreateFocusRingBorder(grid, size, stylingInitFunction);
+	this.right = I1WebGrid_CreateFocusRingBorder(grid, size, stylingInitFunction);
+	this.top = I1WebGrid_CreateFocusRingBorder(grid, size, stylingInitFunction);
+	this.bottom = I1WebGrid_CreateFocusRingBorder(grid, size, stylingInitFunction);
+}
+
+function I1WebGrid_CreateFocusRingBorder(grid, size, stylingInitFunction)
+{
+	var border = document.createElement('div');
+	
+	if (stylingInitFunction)
+	{
+		stylingInitFunction(border);
+	}
+
+	border.style.position = 'absolute';
+	border.style.zIndex = Number.MAX_VALUE / 2;
+	border.style.display = 'none';
+	border.style.fontSize = '0pt';
+	
+	try
+	{
+	    grid.i1Scroller.appendChild(border);
+	}
+	catch(e){}
+	
+	return border;
+}
+
+function I1WebGrid_RestoreScrollocation(scroller, vLoc, hLoc)
+{
+	if (scroller)
+	{
+		if (vLoc && vLoc.value != '')
+		{
+			scroller.scrollTop = parseInt(vLoc.value);
+		}
+		
+		if (hLoc && hLoc.value != '')
+		{
+			scroller.scrollLeft = parseInt(hLoc.value);
+		}
+	}
+}
+
+function I1WebGrid_SaveScrollocation(scroller, vLoc, hLoc)
+{
+	if (scroller != null)
+	{
+		vLoc.value = scroller.scrollTop;
+		hLoc.value = scroller.scrollLeft;
+	}
+}
+
+function I1WebGrid_GetOffsetWidth(element, defaultValue)
+{
+	return element == null ? defaultValue : element.offsetWidth + 'px';
+}
+
+function I1WebGrid_MatchElementWidths(templateElement, adjustedElement)
+{
+	var width = I1WebGrid_GetOffsetWidth(templateElement, '100%');
+	adjustedElement.style.width = width;
+}
+
+function I1WebGrid_SetHighlightedRow(grid, row)
+{
+	if (grid.i1HighlightedRow && !grid.i1HighlightedRow.getAttribute('i1RowDisabled'))
+	{
+		I1FireEvent(grid.i1HighlightedRow, 'mouseout');
+	}
+	
+	grid.i1HighlightedRow = row;
+}
+
+function I1WebGrid_EnsureHighlightedRow(grid)
+{
+	if (grid.i1HighlightedRow) return;
+	
+	var highlightedKeyValue = grid.getAttribute('i1HighlightedKeyValue');
+	
+	if (highlightedKeyValue)
+	{
+		for (var i = 0; i < grid.i1Body.rows.length; i++)
+		{
+			var row = grid.i1Body.rows[i];
+			
+			if (row.getAttribute('i1KeyValue') == highlightedKeyValue)
+			{
+				grid.i1HighlightedRow = row;
+				break;
+			}
+		}
+	}
+	else
+	{
+		var rowIndex = I1WebGrid_FindNextBodyRowIndex(grid, 0);
+		
+		if (rowIndex != -1)
+		{
+			grid.i1HighlightedRow = grid.i1Body.rows[rowIndex];
+		}
+	}
+}
+
+function I1WebGrid_FindNextBodyRowIndex(grid, startingIndex)
+{
+	if (!grid.i1Disabled && grid.i1Body)
+	{
+		for (var i = startingIndex; i < grid.i1Body.rows.length; i++)
+		{
+			var row = grid.i1Body.rows[i];
+			if (row.getAttribute('i1KeyValue') && !row.getAttribute('i1RowDisabled'))
+			{
+				return i;
+			}
+		}
+	}
+	
+	return -1;
+}
+
+function I1WebGrid_HandleKeyDown(grid, event)
+{
+	I1WebGrid_EnsureHighlightedRow(grid);
+	
+	if (!grid.i1Body || grid.i1Body.rows.length < 1) return; // No rows.
+	
+	var lastIndex = grid.i1Body.rows.length - 1;
+	var currentIndex = grid.i1HighlightedRow ? grid.i1HighlightedRow.rowIndex : 0;
+	var newIndex;
+	var down;
+	
+	var typicalRowHeight = grid.i1Body.rows[0].offsetHeight;
+	
+	switch (event.keyCode)
+	{
+		case 38: // up arrow
+			newIndex = currentIndex - 1;
+			down = false;
+			break;
+		case 40: // down arrow 
+			newIndex = currentIndex + 1;
+			down = true;
+			break;
+		case 33: // page up
+			if (event.ctrlKey && event.shiftKey)
+			{
+				// Move one paging increment back.
+				if (grid.i1PriorPagingIncrementProc)
+				{
+					grid.i1PriorPagingIncrementProc();
+				}
+				return;			
+			}
+			else if (event.ctrlKey)
+			{
+				// Move one page back.
+				if (grid.i1PriorPageProc)
+				{
+					grid.i1PriorPageProc();
+				}
+				return;
+			}
+			else
+			{
+				newIndex = currentIndex - Math.round(grid.i1Scroller.offsetHeight / typicalRowHeight) + 1;
+				if (newIndex < 0)
+				{
+					newIndex = 0;
+				}
+				newIndex = I1WebGrid_FindNextBodyRowIndex(grid, newIndex);
+			}
+			down = false;
+			break;
+		case 34: // page down
+			if (event.ctrlKey && event.shiftKey)
+			{
+				// Move one paging increment back.
+				if (grid.i1NextPagingIncrementProc)
+				{
+					grid.i1NextPagingIncrementProc();
+				}
+				return;			
+			}
+			else if (event.ctrlKey)
+			{
+				// Move one page forward.
+				if (grid.i1NextPageProc)
+				{
+					grid.i1NextPageProc();
+				}
+				return;
+			}
+			else
+			{
+				newIndex = currentIndex + Math.round(grid.i1Scroller.offsetHeight / typicalRowHeight) - 1;
+				if (newIndex > lastIndex)
+				{
+					newIndex = lastIndex;
+				}
+				newIndex = I1WebGrid_FindNextBodyRowIndex(grid, newIndex);
+			}
+			down = true;
+			break;
+		case 36: // home
+			if (event.ctrlKey)
+			{
+				// First page.
+				if (grid.i1FirstPageProc)
+				{
+					grid.i1FirstPageProc();
+				}
+				return;
+			}
+			else
+			{
+				// The first item row.
+				newIndex = I1WebGrid_FindNextBodyRowIndex(grid, 0);
+			}
+			down = false;
+			break;
+		case 35: // end
+			if (event.ctrlKey)
+			{
+				// First page.
+				if (grid.i1LastPageProc)
+				{
+					grid.i1LastPageProc();
+				}
+				return;
+			}
+			else
+			{
+			// The last item row.
+			newIndex = I1WebGrid_FindNextBodyRowIndex(grid, lastIndex);
+			}
+			down = true;
+			break;
+		case 32: // space
+			// Checks the checkbox.
+			var checkboxId = null;
+			
+			if (event.shiftKey && grid.i1HighlightedRow)
+			{
+				// Group checkbox.
+				groupRow = I1WebGrid_GetGroupRow(grid, currentIndex);
+				
+				if (groupRow)
+				{
+					checkboxId = groupRow.getAttribute('i1CheckBoxId');
+				}
+			}
+			else if (event.ctrlKey)
+			{
+				// All checkboxes.
+				checkboxId = grid.getAttribute('i1CheckAllBoxId');
+			}
+			
+			if (!checkboxId && grid.i1HighlightedRow)
+			{
+				// Check single row.
+				checkboxId = grid.i1HighlightedRow.getAttribute('i1CheckBoxId');
+			}
+			
+			if (checkboxId)
+			{
+				var checkbox = document.getElementById(checkboxId);
+				if (checkbox)
+				{
+					checkbox.checked = !checkbox.checked;
+					I1FireEvent(checkbox, 'click');
+				}
+				
+				event.returnValue = false;
+			}
+			return;
+		case 13: // enter
+			// Simulate clicking the row.
+			if (!grid.getAttribute('i1EnterKeyDisabled') 
+				&& grid.i1HighlightedRow)
+			{
+				event.returnValue = false;
+				I1FireEvent(grid.i1HighlightedRow, 'click');
+			}
+			return;
+		case 46: // delete
+			// Simulates clicking the delete button.
+			if (grid.i1HighlightedRow)
+			{
+				var cellId = grid.i1HighlightedRow.getAttribute('i1DeleteCellId');
+				
+				if (cellId)
+				{
+					var cell = document.getElementById(cellId);
+					I1FireEvent(cell, 'click');
+					event.returnValue = false;
+				}
+				else
+				{
+					// No change if you can't delete the row.
+					event.returnValue = true;
+				}
+			}
+			return;
+		default: // No change.
+			return;
+	}
+	
+		event.returnValue = false;
+		event.cancelBubble = true;
+	
+	while (newIndex >= 0 && newIndex < grid.i1Body.rows.length)
+	{
+		var newRow = grid.i1Body.rows[newIndex];
+		
+		if (newRow.getAttribute('i1KeyValue') && !newRow.getAttribute('i1RowDisabled'))
+		{
+			I1FireEvent(newRow, 'mouseover');
+			
+			// Scroll into view.
+			I1Controls_ScrollElementIntoView(grid.i1Scroller, newRow);
+
+			break;
+		}
+		else
+		{
+			if (down)
+			{
+				newIndex++;
+			}
+			else
+			{
+				newIndex--;
+			}
+		}
+	}
+}
+
+function I1WebGrid_GetGroupRow(grid, startingIndex)
+{
+	for (var i = startingIndex; i >= 0; i--)
+	{
+		var row = grid.i1Body.rows[i];
+		
+		if (row.getAttribute('i1GroupRow'))
+		{
+			return row;
+		}
+	}
+	
+	return null;
+}
+
+function I1WebGrid_HandleScrollerKeyDown(event)
+{
+	switch (event.keyCode)
+	{
+		case 38: // up arrow
+			return false;
+		case 40: // down arrow 
+			return false;
+		case 33: // page up
+			return false;
+		case 34: // page down
+			return false;
+		case 36: // home
+			return false;
+		case 35: // end
+			return false;
+		default:
+			return true;
+	}
+}
+
+function I1WebGrid_ShowExportButton(grid)
+{
+   
+    if (!grid.i1ExportButton)
+        return;
+
+    grid.i1ExportButtonTimerId = null;
+
+    if (grid.i1ExportButtonHasShown == true)
+        return;    
+
+    // Position at the lower right hand corner of the scroller.	
+    //grid.i1ExportButton.style.display = 'block';
+    //grid.i1ExportButton.style.top = (grid.i1Scroller.scrollTop).toString() + 'px';
+
+    //grid.i1Scroller.style.position = "relative";
+
+    grid.i1ExportButtonHasShown = true;
+}
+
+function I1WebGrid_HideExportButton(grid, hasLeftGrid)
+{    
+	if (!grid.i1ExportButton) return;
+	
+	if (grid.i1ExportButtonTimerId != null)
+	{	
+		window.clearTimeout(grid.i1ExportButtonTimerId);
+		grid.i1ExportButtonTimerId = null;	
+	}
+
+	//grid.i1ExportButton.style.display = 'none';
+	
+	if (hasLeftGrid == true)
+	{
+		grid.i1ExportButtonHasShown = false;
+	}
+}

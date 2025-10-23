@@ -1,0 +1,124 @@
+ /*!
+ * ALPS - App CSS v0.1
+ * Copyright-2019 JARUS TECHNOLOGIES, INC.
+ */
+@media (max-width:767px) {
+    .form-onehalf .date-label,
+    .form-onehalf .col-form-label {
+        width: 100%;
+        float: none;
+    }
+
+    .form-onehalf .datepicker,
+    .form-onehalf .form-control {
+        width: 100%;
+        float: none;
+    }
+
+    .form-twothird .date-label,
+    .form-twothird .col-form-label {
+        width: 100%;
+        float: none
+    }
+
+    .form-twothird .datepicker,
+    .form-twothird .form-control {
+        width: 100%;
+        float: none;
+    }
+
+    .form-onethird-col .datepicker,
+    .form-onethird-col input[type="text"],
+    .form-onethird-col input[type="number"] {
+        width: 100%;
+    }
+
+    #tblClaimSupplement .saveclaim-btn{
+        float: left !important;
+    }
+
+    .dollar-wrap input[type="text"] {
+        width: auto !important;
+    }
+
+}
+
+@media only screen and (min-width: 240px) and (max-width: 991px) {
+    .supplement-inputs .datepicker,
+    .supplement-inputs input[type="text"] {
+        width: 50%;
+    }
+
+    .table-yscroll{
+        width: 100%;
+        overflow-y: hidden;
+        overflow-x: scroll;
+    }
+
+        .table-yscroll #tblMultiAttorney{
+            width: 800px;
+        }
+}
+
+@media only screen and (min-width: 240px) and (max-width:767px) {
+    .tab-section {
+        flex-wrap: nowrap;
+    }
+
+    .policy-tab {
+        padding: 10px 0;
+        font-size: 11px !important;
+        font-weight: 500;
+    }
+
+    .progress{
+        height: 5px !important;
+    }
+
+    .main-content-wrap {
+        margin-top: 0;
+    }
+}
+
+@media only screen and (min-width: 576px) and (max-width: 767px) {
+    .col-sm-4 {
+        -ms-flex: 0 0 50%;
+        flex: 0 0 50%;
+        max-width: 50%;
+    }
+}
+
+@media only screen and (min-width: 991px) and (max-width: 1199px) {
+    .last-elm label{
+        height: 56px;
+    }
+    .last-elm .text-danger {
+        height: 15px;
+    }
+}
+
+@media only screen and (min-width: 200px) and (max-width: 1199px) {
+    .tagline {
+        display: none;
+    }
+}
+
+@media only screen and (min-width: 200px) and (max-width: 575px) {
+    h3 {
+        margin-bottom: 10px;
+    }
+}
+
+@media (min-width: 768px) {
+    .current-policy .date-label {
+        width: 66.66%;
+        display: inline-block;
+        padding-right: 5px;
+    }
+
+    .current-policy .date-container {
+        width: 32.33%;
+        display: inline-block;
+        padding-left: 5px;
+    }
+}

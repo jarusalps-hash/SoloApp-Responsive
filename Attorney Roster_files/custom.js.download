@@ -1,0 +1,332 @@
+// ALPS - Responsive Web Portal
+
+(function ($) {
+    "use strict"; // Start of use strict
+    //Check to see if the window is top if not then display button
+    $(window).scroll(function () {
+        if ($(this).scrollTop() > 100) {
+            $('.scrollToTop').fadeIn(100);
+        } else {
+            $('.scrollToTop').fadeOut(100);
+        }
+    });
+
+    //Click event to scroll to top
+    $('.scrollToTop').click(function () {
+        $('html, body').animate({ scrollTop: 0 }, 800);
+        return false;
+    });
+
+    //Plan Details Custom JS
+    $(document).on('click', '.highlight-td', function () {
+        if (!$(this).closest('tr').hasClass('disable-row')) {
+            $('.highlight-td').removeClass("highlight-active");
+            $(this).addClass("highlight-active");
+
+            //Highlight - Rates Table Header Custom JS	
+            var $table = $(this).closest('table');
+            var $tds = $(this).closest('tr').find('td');
+            $table.find('.thStyle').removeClass('thStyle');
+            //Add Class to Header <th> Cell above
+            var index = $tds.index(this);
+            $table.find('th').eq(index).addClass('thStyle');
+        }
+    });
+
+    $(document).ready(function () {
+
+        $('.ttip').popover({
+            trigger: 'hover',
+            html: true
+        });
+
+        $('.unhighlight-td').click(function () { return false; });
+        $('.disable-row').click(function () { return false; });
+    });
+   
+    $(document).on('click', '.row-highlight', function () {
+        if (!$(this).hasClass('disable-row')) {
+            $('.row-highlight').removeClass("active-highlight");
+            $(this).addClass("active-highlight");
+        }
+    });
+
+    $(document).ready(function () {        
+        $('[name="ApplicationFirm.ApplicationLawyers[#CurrentLawyerIndex].Lawyer.LawSchoolAttendedText"]').focus(function () { $(this).select(); });
+        $('[name="ApplicationFirm.ApplicationLawyers[0].Lawyer.LawSchoolAttendedText"]').focus(function () { $(this).select(); });
+    });
+
+    
+
+    //Employment Practices Liability Insurance (EPLI)
+    $(document).on('click', '.btn-accept', function () {
+        $('.btn-accept').removeClass("active-row");
+        $(this).addClass("active-row");
+    });
+
+    //EPLI Table Highlight -require TD - Custom JS	
+    $(function () {
+        $('#epli').on('click', function () {
+            var $table = $(this).closest('table'),
+                $tds = $(this).closest('tr').find('td');
+            $table.find('.change-tdbg').removeClass('change-tdbg');
+
+            //Add Class TDs in ROW
+            for (var i = 1; i < $tds.length; i++) {
+                $tds.eq(i).addClass('change-tdbg');
+                $tds.eq(3).removeAttr("style");
+            }
+        });
+    });
+
+    $(function () {
+        $('#epli1').on('click', function () {
+            var $table = $(this).closest('table'),
+                $tds = $(this).closest('tr').find('td');
+            $table.find('.change-tdbg').removeClass('change-tdbg');
+
+            var index = $tds.index(this);
+            //Add Class TDs in ROW
+            for (var i = 1; i < $tds.length; i++) {
+                $tds.eq(i).removeClass('change-tdbg');
+                $tds.eq(3).attr("style", "text-decoration: line-through;");
+            }
+        });
+    });
+    //Cyber Table Highlight -require TD - Custom JS	
+    $(function () {
+        $('#cyber').on('click', function () {
+            var $table = $(this).closest('table'),
+                $tds = $(this).closest('tr').find('td');
+            $table.find('.change-tdbg').removeClass('change-tdbg');
+
+            //Add Class TDs in ROW
+            for (var i = 1; i < $tds.length; i++) {
+                $tds.eq(i).addClass('change-tdbg');
+                $tds.eq(4).removeAttr("style");
+            }
+        });
+    });
+
+    $(function () {
+
+        $('#cyber1').on('click', function () {
+            var $table = $(this).closest('table'),
+                $tds = $(this).closest('tr').find('td');
+            $table.find('.change-tdbg').removeClass('change-tdbg');
+
+            var index = $tds.index(this);
+            //Add Class TDs in ROW
+            for (var i = 1; i < $tds.length; i++) {
+                $tds.eq(i).removeClass('change-tdbg');
+                $tds.eq(4).attr("style", "text-decoration: line-through;");
+            }
+        });
+    });
+
+})(jQuery); // End of use strict
+
+$(document).on("click", ".start-loading", function (e) {
+    $('#divLoading').fadeIn();
+});
+$(document).on("click", ".validate-start-loading", function (e) {
+    var form = $(this).closest("form");
+    if (form.length) {
+        if (form.valid()) {
+            $('#divLoading').fadeIn();
+        }
+    } else {
+        $('#divLoading').fadeIn();
+    }
+});
+
+//Number Dollar Format
+$(document).ready(function () {
+    $('input.NumberDollar').each(function () {
+        formatNumberDollarTextBox($(this));
+    });
+
+    $('.NumberDollar').blur(function () {
+        if ($(this).attr("id") === "txtOtherPayment" || $(this).attr("id") === "premiumAmount") {
+            formatDecimalDollarTextBox($(this));
+        }
+        else {
+            formatNumberDollarTextBox($(this));
+        }
+    });
+
+    $('input[type=Number]').on('input', function () {        
+        var val = $(this).val();
+        var newVal = "";
+        try {
+            newVal = Math.abs(val);
+        }
+        catch (err) {
+            $(this).val("");
+        }
+        $(this).val(newVal);
+        
+    });
+
+    $('.textNumber input').on('input', function () {
+        var val = $(this).val();
+        var newVal = "";
+        try {
+            newVal = val.replace(/\D/g, '');
+        }
+        catch (err) {
+            $(this).val("");
+        }
+        $(this).val(newVal);
+
+    });   
+});
+
+function formatNumberDollarTextBox($txt) {
+    var amount = $txt.val();
+    amount = amount.replace(/,/g, "");
+    if ($.isNumeric(amount)) {
+        var formattedamount = formatDollar(parseInt(amount));
+        $txt.val(formattedamount);
+    }
+}
+
+function formatDecimalDollarTextBox($txt) {
+    var amount = $txt.val();
+    amount = amount.replace(/,/g, "");
+    if ($.isNumeric(amount)) {
+        var formattedamount = formatDecimalDollar(parseFloat(amount));
+        $txt.val(formattedamount);
+    }
+}
+
+function formatDecimalDollar(num) {
+    var p = num.toFixed(2).split(".");
+
+    return p[0].split("").reverse().reduce(function (acc, num, i, orig) {
+        return num == "-" ? acc : num + (i && !(i % 3) ? "," : "") + acc;
+    }, "") + "." + p[1];
+}
+
+function formatDollar(num) {
+    var p = num.toFixed(2).split(".");
+    return p[0].split("").reverse().reduce(function (acc, num, i, orig) {
+        return num == "-" ? acc : num + (i && !(i % 3) ? "," : "") + acc;
+    }, "");
+}
+//End of Number Dollar Format
+
+function checkdate(elem) {
+    var date = elem.value;
+    var splitdate = date.split('/');
+    if (event.keyCode === 191 || event.keyCode === 111) {
+        if (splitdate[0] !== "mm") {
+            splitdate[0] = splitdate[0].replace(/m/g, '');
+            splitdate[0] = pad(splitdate[0], 2);
+        }
+        if (splitdate[1] !== "dd") {
+            splitdate[1] = splitdate[1].replace(/d/g, '');
+            splitdate[1] = pad(splitdate[1], 2);
+
+        }
+        if (splitdate[2] !== "yyyy") {
+            splitdate[2] = splitdate[2].replace(/y/g, '');
+        }
+        date = splitdate[0] + "/" + splitdate[1] + "/" + splitdate[2];
+        //alert(date);
+        elem.value = date;
+        if (splitdate[1] !== "mm") {
+            elem.selectionStart = 3;
+            elem.selectionEnd = 5;
+        }
+        if (splitdate[1] !== "dd") {
+            elem.selectionStart = 6;
+            elem.selectionEnd = 10;
+        }
+    }
+    else {
+        if (splitdate[2] !== "yyyy") {
+            splitdate[2] = splitdate[2].replace(/y/g, '');
+
+            if (splitdate[1] !== "mm") {
+                splitdate[0] = splitdate[0].replace(/m/g, '');
+                splitdate[0] = pad(splitdate[0], 2);
+            }
+            if (splitdate[1] !== "dd") {
+                splitdate[1] = splitdate[1].replace(/d/g, '');
+                splitdate[1] = pad(splitdate[1], 2);
+            }
+
+            date = splitdate[0] + "/" + splitdate[1] + "/" + splitdate[2];
+            elem.value = date;
+        }
+    }
+    function pad(num, size) {
+        var s = "0" + num;
+        return s.substr(s.length - size);
+    }
+}
+
+
+function setDate(dateField) {
+    if (dateField.length != 0) {
+        var fullDate = (dateField.value).split("/");
+        if (fullDate != "") {
+            year = (fullDate[2]).replace(/y/gi, '');
+            if (year.length == 2) {
+                prependedYear = PadToYear(year);
+                dateField.value = (fullDate[0] + '/' + fullDate[1] + '/' + prependedYear);
+                //$(dateField.parentNode).datepicker('setDate', dateField.value);
+            }
+        }
+        if (!isDate(dateField.value))
+            dateField.value = '';
+
+        $(dateField.parentNode).datepicker('setDate', dateField.value);
+    }
+}
+
+function isDate(enteredDate) {
+    value = !isNaN(enteredDate.replace(/\//g, ''));
+    return value;
+}
+function convertToDateObj(date) {
+    date = date.split("/");
+    year = parseInt(date[2]);
+    month = parseInt(date[0]) - 1;
+    day = parseInt(date[1]);
+    return (new Date(year, month, day));
+}
+function PadToYear(enteredYear) {
+    date = new Date()
+    year = date.getFullYear();
+    lastTwoDigitsOfPresentYear = year.toString(10).substring(2, 4);
+    firstTwoDigitsOfPresentYear = year.toString(10).substring(0, 2);
+    firstTwoDigitsOfPreviousYear = (parseInt(firstTwoDigitsOfPresentYear) - 1).toString(10);
+    year = parseInt(enteredYear) <= parseInt(lastTwoDigitsOfPresentYear) ? firstTwoDigitsOfPresentYear : firstTwoDigitsOfPreviousYear;
+    // years checking for future 1 years if number entered in future 10 years then it will take current year
+    if ((enteredYear - lastTwoDigitsOfPresentYear) <= 10) {
+        year = firstTwoDigitsOfPresentYear;
+    }
+    return year.padStart(2, "0") + enteredYear;
+}
+
+
+if (window.JSON && !window.JSON.dateParser) {
+    var reISO = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2}):(\d{2}(?:\.\d*))(?:Z|(\+|-)([\d|:]*))?$/;
+    var reMsAjax = /^\/Date\((d|-|.*)\)[\/|\\]$/;
+
+    JSON.dateParser = function (key, value) {
+        if (typeof value === 'string') {
+            var a = reISO.exec(value);
+            if (a)
+                return new Date(value);
+            a = reMsAjax.exec(value);
+            if (a) {
+                var b = a[1].split(/[-+,.]/);
+                return new Date(b[0] ? +b[0] : 0 - +b[1]);
+            }
+        }
+        return value;
+    };
+}

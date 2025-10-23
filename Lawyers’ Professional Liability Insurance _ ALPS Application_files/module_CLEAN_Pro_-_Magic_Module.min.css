@@ -1,0 +1,1 @@
+.bg-image{display:block!important;height:100%!important;left:50%;object-fit:cover;opacity:0;position:absolute;top:50%;transform:translate(-50%,-50%);transition:opacity 1s ease;width:100%;z-index:-1}.bg-image.fadeout{opacity:0!important}.bg-image.next{opacity:1;z-index:0!important}.bg-image.current{opacity:1;z-index:1!important}
